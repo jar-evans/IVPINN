@@ -31,11 +31,11 @@ class interpolator:
         input=degree,verbose (True or False to shoe the poly)
         """
         self.r = r
-        self.n_inside_edges=r-1
-        if r>1:
+        self.n_inside_edge=r-1
+        if r==1:
             self.n_inside=0
         else:
-            self.n_inside=(r*r -2*r +2)//2
+            self.n_inside=(r*r -3*r +2)//2
         
 
         #to perform loops easily 
@@ -121,7 +121,7 @@ class interpolator:
         """
         plot the nodes used for the basis on the ref triangle
         """
-        print("degree = ",self.r," , local dof = ",self.n)
+        print("degree = ",self.r," , local dof = ",self.n," internal dof = ",self.n_inside,' points inside each edge = ',self.n_inside_edge)
 
         print(self.nodes)
 
