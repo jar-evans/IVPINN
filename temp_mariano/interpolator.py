@@ -49,14 +49,15 @@ class interpolator:
 
         self.nodes,self.Nodes,self.n,self.temp = self.generate_interp_nodes(r)
         
-        if bool:
-            self.plot_nodes()
 
 
         #matrices that rapresent the polynomials
         self.M ,self.M_dx,self.M_dy,self.M_d2x,self.M_d2y= self.generate_matrices(verbose)
 
         self.change_order()
+
+        if bool:
+            self.plot_nodes()
 
         self.pre=pre
 
