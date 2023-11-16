@@ -106,4 +106,5 @@ params = {'scheme': 'VPINNs',
             'n_residual': 100,
             'domain': ((-1, -1), (1, 1)),
             'Opt_Niter': 15000 + 1,
-            'delta_test': 0.01}
+            'delta_test': 0.01,
+            'N_test':2}

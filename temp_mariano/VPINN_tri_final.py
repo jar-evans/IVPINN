@@ -3,11 +3,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pyDOE import lhs
 from GaussJacobiQuadRule_V3 import GaussLobattoJacobiWeights
+from interpolator import *
 import time
 SEED = 42
+from quad import *
 
 
-class VPINN():
+class VPINN(tf.keras.Model):
 
     def __init__(self, pb, params, mesh, NN = None):
 
@@ -16,10 +18,14 @@ class VPINN():
         # accept parameters
         self.pb = pb
         self.params = params
-        self.NN_struct = params['NN_struct']
         self.n_test = params['n_test']
 
         self.mesh = mesh
+        self.n_vertices=len(mesh['vertices'])
+        self.n_edges=len(mesh['edges'])
+        self.n_triangles=len(mesh['triangles'])
+        self.dof=(self.n_vertices-np.sum(self.mesh['vertex_markers']))+(self.n_edges-np.sum(self.mesh['edge_markers']))
+        print(self.dof)
 
         self.n_el_x, self.n_el_y = self.params['n_elements']
 
@@ -32,7 +38,7 @@ class VPINN():
         if NN:
             self.set_NN(NN)
 
-    def set_NN(self, NN, LR):
+    def set_NN(self, NN, LR=0.0001):
         np.random.seed(SEED)
         tf.random.set_seed(SEED)
         # initialise the NN
@@ -44,133 +50,146 @@ class VPINN():
         # set optimiser
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=LR)
 
-    def initialise_NN(self, structure: list, LR: float):
 
-        input_dim = structure[0]
-        output_dim = structure[-1]
-        network = structure[1:-1]
 
-        NN = tf.keras.Sequential()
-        NN.add(tf.keras.layers.InputLayer(input_dim))
-        # NN.add(tf.keras.layers.Lambda(lambda x: 2. * (x + 1) / (2) - 1.))
+    def eval_NN(self, x):
+        """input tensor of size (n,2) returns tensor of size (n,1)"""
+        return self.NN(x)
+    
+    def eval_grad_NN(self,x):
+        """input tensor of size (n,2) returns tensor of size (n,2) ->on each row you have first der x and then der y"""
+        with tf.GradientTape() as tape:
+            tape.watch(x)
+            res=self.NN(x)
+        grad=tape.gradient(res,x)
+        return grad
+    
+    def eval_laplacian_NN(self,x):
+        """input tensor of size (n,2) returns tensor of size (n,2) ->on each row you have first derder x and then derder y"""
+        with tf.GradientTape() as tape_:
+            #tape_.watch(x) here 
+            with tf.GradientTape() as tape:
+                tape.watch(x)
+                res=self.NN(x)
+            grad=tape.gradient(res,x)
 
-        for width in network:
-            NN.add(tf.keras.layers.Dense(width,
-                                            activation='tanh',
-                                            use_bias=True,
-                                            kernel_initializer='glorot_normal',
-                                            bias_initializer='zeros'))
-        NN.add(tf.keras.layers.Dense(output_dim))
+            tape_.watch(x) #or here 
+            laplacian=tape_.gradient(grad,x)
+        return grad
+    
+    def eval_NN_and_grad(self,x):
+        """input tensor of size (n,2) returns tensor eval of size (n,2)  + tensor grad of size (n,2)"""
+        with tf.GradientTape() as tape:
+            tape.watch(x)
+            res=self.NN(x)
+        grad=tape.gradient(res,x)
+        return res,grad
 
-        self.set_NN(NN, LR)
-
-    def eval_NN(self, x, y):
-        x = tf.convert_to_tensor(x, dtype=tf.float64)
-        y = tf.convert_to_tensor(y, dtype=tf.float64)        
-
-        with tf.GradientTape(persistent=True) as second_order:
-            second_order.watch(x)
-            second_order.watch(y)
-            with tf.GradientTape(persistent=True) as first_order:
-                first_order.watch(x)
-                first_order.watch(y)
-                u = self.NN(tf.concat([x, y], 1))
-            d1xu = first_order.gradient(u, x)
-            d1yu = first_order.gradient(u, y)
-        d2xu = second_order.gradient(d1xu, x)
-        d2yu = second_order.gradient(d1yu, y)
-
-        del first_order
-        del second_order
-
-        return u, [d1xu, d1yu], [d2xu, d2yu]
     
     def u_NN(self, x):
         x = tf.convert_to_tensor(x, dtype=tf.float64)
         y = tf.convert_to_tensor(y, dtype=tf.float64)  
         return self.NN(tf.concat([x, y], 1))
 
+
+    @tf.function
     def boundary_loss(self):
     ## NOTE:impose boundary or same structure for ICs
-        boundary_x = self.boundary_points[:,0].flatten()
-        boundary_y = self.boundary_points[:,1].flatten()
+        prediction = self.eval_NN(self.boundary_points)
+        u_bound_exact=self.u_bound_exact
+        return tf.reduce_mean(tf.square(u_bound_exact - prediction))
 
-        prediction = self.eval_NN(np.reshape(boundary_x, (len(boundary_x), 1)), np.reshape(boundary_y, (len(boundary_y), 1)))[0]
-
-        u_bound_NN = prediction
-        u_bound_exact = self.pb.u_exact(boundary_x, boundary_y)
-
-        return tf.reduce_mean(tf.square(u_bound_NN - u_bound_exact))
-
+    
     def variational_loss(self):
 
-        v_x = self.v_evaluations["vx_quad"]
-        # v_y = self.v_evaluations["vy_quad"]
-        # dv_x_quad_el, d2v_x_quad_el = self.v_evaluations["dv_x_quad"], self.v_evaluations["d2v_x_quad"]
-        # v_y_quad_el = self.v_evaluations["v_y_quad"]
-        # dv_y_quad_el, d2v_y_quad_el = self.v_evaluations["dv_y_quad"], self.v_evaluations["d2v_y_quad"]
 
-        varloss_total = 0
+        a_vertices = np.zeros((self.n_vertices,1),dtype=np.float64)
+        a_edges = np.zeros((self.n_edges,1),dtype=np.float64)
+        n_triangles=self.n_triangles
+        xy_quad_total =self.xy_quad_total
+        dof=self.dof
 
-        for element in range(self.mesh.N):
-
-            F_element = self.F_total[element]
-            xy_quad_element = self.xy_quad_total[element]
-            J = self.J_total[element]
-
-            # print(np.sum(self.F_total))
-            # print(np.max(self.F_total))
-            # print(np.min(self.F_total))
-            # break
-
-            x_quad_element = np.reshape(xy_quad_element[:, 0], (len(xy_quad_element),1))
-            y_quad_element = np.reshape(xy_quad_element[:, 1], (len(xy_quad_element),1))
-
-            u_NN_quad_el, [d1xu_NN_quad_el, d1yu_NN_quad_el], [d2xu_NN_quad_el, d2yu_NN_quad_el] = self.eval_NN(x_quad_element, y_quad_element)
-            integrand_1 = d2xu_NN_quad_el + d2yu_NN_quad_el
-
-            # print(np.shape(self.w_quad))
-            # print(np.shape(v_x_quad_el[1]))
-            # print(np.shape(self.w_quad*v_x_quad_el[1]*v_y_quad_el[1]*integrand_1))
+        w_quad = tf.concat([self.w_quad.T, tf.ones_like(self.w_quad.T)], axis=0)
 
 
-            if self.params['var_form'] == 0:
-                u_NN_el = tf.convert_to_tensor([J*tf.reduce_sum(self.w_quad*v_x[r]*integrand_1) for r in range(self.n_test)], dtype=tf.float64)
+        #eval in one shot 
+        x_eval=tf.reshape(xy_quad_total,(-1,2))
+        grad=self.eval_grad_NN(x_eval)
+        grad=tf.reshape(grad,(n_triangles,-1,2))
 
-            # if self.params['var_form'] == 1:
-            #     u_NN_el_1 = tf.convert_to_tensor([[jacobian/jacobian_x*tf.reduce_sum(
-            #         self.w_quad[:, 0:1]*dv_x_quad_el[r]*self.w_quad[:, 1:2]*v_y_quad_el[k]*d1xu_NN_quad_el)
-            #         for r in range(n_test_x)] for k in range(n_test_y)], dtype=tf.float32)
-            #     u_NN_el_2 = tf.convert_to_tensor([[jacobian/jacobian_y*tf.reduce_sum(
-            #         self.w_quad[:, 0:1]*v_x_quad_el[r]*self.w_quad[:, 1:2]*dv_y_quad_el[k]*d1yu_NN_quad_el)
-            #         for r in range(n_test_x)] for k in range(n_test_y)], dtype=tf.float32)
-            #     u_NN_el = - u_NN_el_1 - u_NN_el_2
+        F_total_vertices=self.F_total_vertices
+        F_total_edges=self.F_total_edges
+        grad_test=self.grad_test  
 
-            # if self.params['var_form'] == 2:
-            #     u_NN_el_1 = tf.convert_to_tensor([[jacobian*tf.reduce_sum(
-            #         self.w_quad[:, 0:1]*d2v_x_quad_el[r]*self.w_quad[:, 1:2]*v_y_quad_el[k]*u_NN_quad_el)
-            #         for r in range(n_test_x)] for k in range(n_test_y)], dtype=tf.float32)
-            #     u_NN_el_2 = tf.convert_to_tensor([[jacobian*tf.reduce_sum(
-            #         self.w_quad[:, 0:1]*v_x_quad_el[r]*self.w_quad[:, 1:2]*d2v_y_quad_el[k]*u_NN_quad_el)
-            #         for r in range(n_test_x)] for k in range(n_test_y)], dtype=tf.float32)
-            #     u_NN_el = u_NN_el_1 + u_NN_el_2
 
-            res_NN_element = tf.reshape(u_NN_el - F_element, [1, -1])
-            loss_element = tf.reduce_mean(tf.square(res_NN_element))
-            varloss_total = varloss_total + loss_element
 
-        return varloss_total
+
+
+        a_vertices = np.array(np.zeros((self.n_vertices,), dtype=np.float64))
+        a_edges = np.array(np.zeros((self.n_edges,), dtype=np.float64))
+        
+
+        for index,triangle in enumerate(self.mesh['triangles']):
+
+            a_element=np.array(np.zeros((6,), dtype=np.float64))
+
+
+            grad_elem=tf.transpose(grad[index])
+   
+
+            # get quadrature points in arb. element and get jacobian
+            B,c,J,B_D,B_DD=self.b.change_of_coordinates(self.mesh['vertices'][triangle])
+
+            grad_test_elem=B_D @ grad_test
+      
+            
+
+            for r in range(self.b.n):
+                a_element[r]= J*tf.reduce_sum(w_quad*grad_test_elem[r]*grad_elem)
+
+
+
+            if (self.mesh['vertex_markers'][triangle[0]]==0):
+                    a_vertices[triangle[0]]+=a_element[0]
+
+
+            if (self.mesh['vertex_markers'][triangle[1]]==0):
+                    a_vertices[triangle[1]]+=a_element[1]
+ 
+
+            if (self.mesh['vertex_markers'][triangle[2]]==0):
+                    a_vertices[triangle[2]]+=a_element[2]
+
+
+     
+            if(self.b.r>=2):
+                    if(self.mesh['edge_markers'][self.mesh['edges_index_inside_triangle'][index][0]]==0):
+                        a_edges[self.mesh['edges_index_inside_triangle'][index][0]]+=a_element[3]
+
+                    if(self.mesh['edge_markers'][self.mesh['edges_index_inside_triangle'][index][1]]==0):
+                            a_edges[self.mesh['edges_index_inside_triangle'][index][1]]+=a_element[4]
+
+                    if(self.mesh['edge_markers'][self.mesh['edges_index_inside_triangle'][index][2]]==0):
+                        a_edges[self.mesh['edges_index_inside_triangle'][index][2]]+=a_element[5]
+
+            #print(F_total_edges)
+
+        return tf.reduce_sum(tf.square(a_vertices-F_total_vertices))+tf.reduce_sum(tf.square(a_edges-F_total_edges))/dof
+    
+
+
+
 
     @tf.function
     def loss_total(self):
-        loss_0 = 0
         loss_b = self.boundary_loss()
         loss_v = self.variational_loss()
-        return tf.cast(loss_0, dtype=tf.float64) + tf.cast(loss_b, dtype=tf.float64) + tf.cast(loss_v, dtype=tf.float64)
+        return loss_b+loss_v
 
     @tf.function
     def loss_gradient(self):
-        with tf.GradientTape(persistent=True) as loss_grad:
+        
+        with tf.GradientTape() as loss_grad:
             loss = self.loss_total()
         gradient = loss_grad.gradient(loss, self.vars)
         return loss, gradient
@@ -208,39 +227,27 @@ class VPINN():
 
         return a, b, scale, mid
 
+
+
     def generate_boundary_points(self):
         # Boundary points
-        a, b, scale, mid = self.get_domain_info()
+        a = (0, 0)
+        b = (1, 0)
+        c = (1, 1)
+        d = (0, 1)
 
-        boundary_grid = scale*(lhs(1, self.params['n_bound']) - 0.5) + mid
 
-        boundary_grid = np.array(boundary_grid)
+        boundary_points = self.generate_rectangle_points(a, b, c, d, self.params['n_bound'])
 
-        y_up = b[1]*np.ones((len(boundary_grid[:, 0]), 1))
-        y_lo = a[1]*np.ones((len(boundary_grid[:, 0]), 1))
-        x_ri = b[0]*np.ones((len(boundary_grid[:, 1]), 1))
-        x_le = a[0]*np.ones((len(boundary_grid[:, 1]), 1))
+        self.boundary_points=tf.constant(boundary_points,dtype=tf.float64)
 
-        u_up_train = self.pb.u_exact(boundary_grid[:, 0], y_up)
-        x_up_train = np.hstack(
-            (np.reshape(boundary_grid[:, 0], (len(boundary_grid[:, 0]), 1)), y_up))
 
-        u_lo_train = self.pb.u_exact(boundary_grid[:, 0], y_lo)
-        x_lo_train = np.hstack(
-            (np.reshape(boundary_grid[:, 0], (len(boundary_grid[:, 0]), 1)), y_lo))
+        u_bound_exact = self.pb.u_exact(self.boundary_points[:, 0], self.boundary_points[:, 1])
+        self.u_bound_exact=tf.reshape(u_bound_exact,(-1,1))
 
-        u_ri_train = self.pb.u_exact(boundary_grid[:, 1], x_ri)
-        x_ri_train = np.hstack(
-            (x_ri, np.reshape(boundary_grid[:, 1], (len(boundary_grid[:, 1]), 1))))
 
-        u_le_train = self.pb.u_exact(boundary_grid[:, 1], x_le)
-        x_le_train = np.hstack(
-            (x_le, np.reshape(boundary_grid[:, 1], (len(boundary_grid[:, 1]), 1))))
 
-        self.boundary_points = np.concatenate(
-            (x_up_train, x_lo_train, x_ri_train, x_le_train))
-        self.boundary_sol = np.concatenate(
-            (u_up_train, u_lo_train, u_ri_train, u_le_train))
+
 
     # def generate_inner_points(self):
     #     _, _, scale, mid = self.get_domain_info()
@@ -265,6 +272,8 @@ class VPINN():
 
         self.construct_RHS()
 
+
+
     def evaluate_test_and_inter_functions(self):
         #change that by using interpolator class
         #self.v_evaluations = {}
@@ -278,9 +287,37 @@ class VPINN():
         # print(np.max(self.v_evaluations["v_y_quad"]), np.min(self.v_evaluations["v_y_quad"]), np.sum(self.v_evaluations["v_y_quad"]))
 
 
-        self.b=interpolator(self.n_test,False,True,points=self.points)
+        self.b=interpolator(self.params['N_test'],False,True,points=self.points)
 
-        self.B=interpolator(self.n_inter,False,False,points=None)
+        self.B=interpolator(2,False,False,points=None)
+
+        grad=[]
+
+        for i in range(self.b.n):
+            elem=np.stack([self.b.Base_dx[:,i],self.b.Base_dy[:,i]])
+            grad.append(elem)
+
+        self.grad_test=tf.constant(grad,dtype=tf.float64)
+
+    def generate_points_on_edge(self,point1, point2, num_points):
+        x_vals = np.linspace(point1[0], point2[0], num_points,endpoint=False)
+        y_vals = np.linspace(point1[1], point2[1], num_points,endpoint=False)
+        points_on_edge = np.column_stack((x_vals, y_vals))
+        return points_on_edge
+
+    def generate_rectangle_points(self,a, b, c, d, num_points_per_edge):
+
+        edge1 = self.generate_points_on_edge(a, b, num_points_per_edge)
+        edge2 = self.generate_points_on_edge(b, c, num_points_per_edge)
+        edge3 = self.generate_points_on_edge(c, d, num_points_per_edge)
+        edge4 = self.generate_points_on_edge(d, a, num_points_per_edge)
+
+        rectangle_points = np.vstack((edge1, edge2, edge3, edge4))
+        return rectangle_points    
+
+
+
+
 
     def generate_quadrature_points(self):
         """
@@ -289,10 +326,10 @@ class VPINN():
         self.y_quad 
         self.w_quad
         """
-        self.xy_quad, self.w_quad = self.mesh.GLQ()
+        self.xy_quad =np.array(points,dtype=np.float64)
+        self.w_quad = np.array(weights,dtype=np.float64)
         self.x_quad = np.reshape(self.xy_quad[:,0], (len(self.xy_quad), 1))
         self.y_quad = np.reshape(self.xy_quad[:,1], (len(self.xy_quad), 1))
-
 
         self.points=self.xy_quad
         
@@ -300,8 +337,8 @@ class VPINN():
 
     def pre_compute(self):
         self.generate_quadrature_points()
-        self.evaluate_test_functions()
-        self.F_ext_total = self.construct_RHS()
+        self.evaluate_test_and_inter_functions()
+        self.construct_RHS()
 
     def evaluate_test_functions(self):
         self.v_evaluations = {}
@@ -321,45 +358,89 @@ class VPINN():
         # vx_quad = self.v_evaluations["vx_quad"]
         # vy_quad = self.v_evaluations["vy_quad"]
 
-        F_total = []
+        F_total_vertices = np.zeros((self.n_vertices,1),dtype=np.float64)
+        F_total_edges = np.zeros((self.n_edges,1),dtype=np.float64)
+        r=self.b.r
+        
+
         xy_quad_total = []
         J_total = []
+        F_total=[]
+        
 
-        for big_element in range(self.mesh.N):
+        for index,triangle in enumerate(self.mesh['triangles']):
             F_element=[]
             x_element=[]
             J_element=[]
+            x_quad=self.points
 
-            for element in range(self.mesh.meshed_elements[big_element].N):
-    
+            # get quadrature points in arb. element and get jacobian
+            B,c,J,B_D,B_DD=self.b.change_of_coordinates(self.mesh['vertices'][triangle])
 
-                # get quadrature points in arb. element and get jacobian
-                xy_quad_element, J = self.mesh.translate(self.xy_quad, self.mesh.meshed_elements[big_element]._get_element_points(element))
-                x_element.append(xy_quad_element)
-                J_element.append(J)
+            xy_quad_element=(B@x_quad.T +c).T
+      
+            
 
-                # evaluate f on arb. quad points
-                f_quad_element = self.pb.f_exact(xy_quad_element[:, 0], xy_quad_element[:, 1])
 
-                # do the integral and appnd to total list
-                F_element.append([J*np.sum(self.w_quad[:,0]*self.b.Base[:,r]*f_quad_element) for r in range(self.b.n)])
+            J_element.append(J)
+
+            # evaluate f on arb. quad points
+            f_quad_element = self.pb.f_exact(xy_quad_element[:, 0], xy_quad_element[:, 1])
+
+            # do the integral and appnd to total list
+            #print([J*np.sum(self.w_quad[:,0]*self.b.Base[:,r]*f_quad_element) for r in range(self.b.n)])
+            F_element=[J*np.sum(self.w_quad[:,0]*self.b.Base[:,r]*f_quad_element) for r in range(self.b.n)]
 
             
 
             F_element=np.array(F_element,dtype=np.float64)
-            print(F_element)
             J_element=np.array(J_element,dtype=np.float64)
-            xy_quad_total.append(x_element)
-            J_total.append(J_element)
-            F_total.append(F_element)
 
-            #xy_quad_total.append(xy_quad_element)
+            if (self.mesh['vertex_markers'][triangle[0]]==0):
+                    F_total_vertices[triangle[0]]+=F_element[0]
+
+
+            if (self.mesh['vertex_markers'][triangle[1]]==0):
+                    F_total_vertices[triangle[1]]+=F_element[1]
+ 
+
+            if (self.mesh['vertex_markers'][triangle[2]]==0):
+                    F_total_vertices[triangle[2]]+=F_element[2]
+
+
+     
+
+
+            if(r>=2):
+                    if(self.mesh['edge_markers'][self.mesh['edges_index_inside_triangle'][index][0]]==0):
+                        F_total_edges[self.mesh['edges_index_inside_triangle'][index][0]]+=F_element[3]
+
+                    if(self.mesh['edge_markers'][self.mesh['edges_index_inside_triangle'][index][1]]==0):
+                            F_total_edges[self.mesh['edges_index_inside_triangle'][index][1]]+=F_element[4]
+
+                    if(self.mesh['edge_markers'][self.mesh['edges_index_inside_triangle'][index][2]]==0):
+                        F_total_edges[self.mesh['edges_index_inside_triangle'][index][2]]+=F_element[5]  
+
+            #print(F_total_edges)
+
+            xy_quad_total.append(xy_quad_element)
+    
             #J_total.append(J)
 
-        self.J_total=J_total
-        self.F_total = F_total
-        self.xy_quad_total = np.array(xy_quad_total,dtype=np.float64)
 
+        self.J_total=J_total
+        self.F_total_vertices=tf.constant(F_total_vertices,dtype=tf.float64)
+        self.F_total_edges=tf.constant(F_total_edges,dtype=tf.float64)
+        xy_quad_total = np.array(xy_quad_total,dtype=np.float64)
+        self.xy_quad_total=tf.constant(xy_quad_total,dtype=tf.float64)
+
+        print(np.shape(self.w_quad[:,0]),np.shape(self.b.Base[:,0]))
+
+
+        #print(self.F_total_edges)
+        #print(self.F_total_vertices)
+        #print(self.xy_quad_total)
+        #print(tf.shape(self.xy_quad_total))
 
 
 
