@@ -8,6 +8,9 @@ import time
 SEED = 42
 from quad import *
 
+#tf.compat.v1.disable_eager_execution()
+
+
 
 class VPINN(tf.keras.Model):
 
@@ -38,7 +41,7 @@ class VPINN(tf.keras.Model):
         if NN:
             self.set_NN(NN)
 
-    def set_NN(self, NN, LR=0.0001):
+    def set_NN(self, NN, LR=0.001):
         np.random.seed(SEED)
         tf.random.set_seed(SEED)
         # initialise the NN
@@ -58,7 +61,7 @@ class VPINN(tf.keras.Model):
     
     def eval_grad_NN(self,x):
         """input tensor of size (n,2) returns tensor of size (n,2) ->on each row you have first der x and then der y"""
-        with tf.GradientTape() as tape:
+        with tf.GradientTape(persistent=True) as tape:
             tape.watch(x)
             res=self.NN(x)
         grad=tape.gradient(res,x)
@@ -100,16 +103,18 @@ class VPINN(tf.keras.Model):
         return tf.reduce_mean(tf.square(u_bound_exact - prediction))
 
     
+    @tf.function
     def variational_loss(self):
 
 
-        a_vertices = np.zeros((self.n_vertices,1),dtype=np.float64)
-        a_edges = np.zeros((self.n_edges,1),dtype=np.float64)
+        a_vertices = np.zeros((self.n_vertices,1),dtype=np.float64) #
+        a_edges = np.zeros((self.n_edges,1),dtype=np.float64) #
+
         n_triangles=self.n_triangles
         xy_quad_total =self.xy_quad_total
         dof=self.dof
 
-        w_quad = tf.concat([self.w_quad.T, tf.ones_like(self.w_quad.T)], axis=0)
+        w_quad = tf.concat([self.w_quad.T,self.w_quad.T], axis=0)
 
 
         #eval in one shot 
@@ -119,14 +124,17 @@ class VPINN(tf.keras.Model):
 
         F_total_vertices=self.F_total_vertices
         F_total_edges=self.F_total_edges
+
+   
+
         grad_test=self.grad_test  
 
 
 
 
 
-        a_vertices = np.array(np.zeros((self.n_vertices,), dtype=np.float64))
-        a_edges = np.array(np.zeros((self.n_edges,), dtype=np.float64))
+        a_vertices = tf.zeros((self.n_vertices, 1), dtype=tf.float64)
+        a_edges = tf.zeros((self.n_edges, 1), dtype=tf.float64)
         
 
         for index,triangle in enumerate(self.mesh['triangles']):
@@ -142,8 +150,39 @@ class VPINN(tf.keras.Model):
 
             grad_test_elem=B_D @ grad_test
       
-            
+            v0= J*tf.reduce_sum(w_quad*grad_test_elem[0]*grad_elem)
+            v1= J*tf.reduce_sum(w_quad*grad_test_elem[1]*grad_elem)
+            v2= J*tf.reduce_sum(w_quad*grad_test_elem[2]*grad_elem)
 
+            l0=J*tf.reduce_sum(w_quad*grad_test_elem[3]*grad_elem)
+            l1=J*tf.reduce_sum(w_quad*grad_test_elem[4]*grad_elem)
+            l2=J*tf.reduce_sum(w_quad*grad_test_elem[5]*grad_elem)
+
+            #a_vertices[triangle[0]]+=a_element[0]
+            
+            if (self.mesh['vertex_markers'][triangle[0]]==0):
+                    tf.tensor_scatter_nd_update(a_vertices, [triangle[0],1], v0)
+
+
+            if (self.mesh['vertex_markers'][triangle[1]]==0):
+                    tf.tensor_scatter_nd_update(a_vertices, [triangle[1],1], v1)
+ 
+
+            if (self.mesh['vertex_markers'][triangle[2]]==0):
+                    tf.tensor_scatter_nd_update(a_vertices, [triangle[2],1], v0)
+
+            if(self.b.r>=2):
+                    if(self.mesh['edge_markers'][self.mesh['edges_index_inside_triangle'][index][0]]==0):
+                        tf.tensor_scatter_nd_update(a_edges, [self.mesh['edges_index_inside_triangle'][index][0],1], l0)
+
+                    if(self.mesh['edge_markers'][self.mesh['edges_index_inside_triangle'][index][1]]==0):
+                        tf.tensor_scatter_nd_update(a_edges, [self.mesh['edges_index_inside_triangle'][index][1],1], l1)
+
+                    if(self.mesh['edge_markers'][self.mesh['edges_index_inside_triangle'][index][2]]==0):
+                        tf.tensor_scatter_nd_update(a_edges, [self.mesh['edges_index_inside_triangle'][index][2],1], l2)
+
+
+            """
             for r in range(self.b.n):
                 a_element[r]= J*tf.reduce_sum(w_quad*grad_test_elem[r]*grad_elem)
 
@@ -173,8 +212,11 @@ class VPINN(tf.keras.Model):
                         a_edges[self.mesh['edges_index_inside_triangle'][index][2]]+=a_element[5]
 
             #print(F_total_edges)
+            """
 
-        return tf.reduce_sum(tf.square(a_vertices-F_total_vertices))+tf.reduce_sum(tf.square(a_edges-F_total_edges))/dof
+
+
+        return a_vertices-F_total_vertices,a_edges-F_total_edges
     
 
 
@@ -183,21 +225,25 @@ class VPINN(tf.keras.Model):
     @tf.function
     def loss_total(self):
         loss_b = self.boundary_loss()
-        loss_v = self.variational_loss()
-        return loss_b+loss_v
+        #res_vertices,res_edges = self.variational_loss()
+        return res_vertices,res_edges #+loss_v
 
     @tf.function
     def loss_gradient(self):
         
-        with tf.GradientTape() as loss_grad:
-            loss = self.loss_total()
-        gradient = loss_grad.gradient(loss, self.vars)
+        with tf.GradientTape(persistent=True) as loss_grad:
+            loss_grad.watch(self.xy_quad_total)
+            res_vertices,res_edges = self.loss_total()
+            loss=tf.reduce_sum(tf.square(res_vertices))+tf.reduce_sum(tf.square(res_edges))/self.dof
+
+        gradient = loss_grad.gradient(loss, self.NN.trainable_variables)
         return loss, gradient
 
     @tf.function
     def gradient_descent(self):
         loss, gradient = self.loss_gradient()
-        self.optimizer.apply_gradients(zip(gradient, self.vars))
+        
+        self.optimizer.apply_gradients(zip(gradient, self.NN.trainable_variables))
         return loss
 
     def train(self, iter):
@@ -205,15 +251,15 @@ class VPINN(tf.keras.Model):
         history = []
 
         start_time = time.time()
-        for i in range(iter):
+        for i in range(iter+1):
 
             loss = self.gradient_descent()
-
             if i % 100 == 0:
                 elapsed = time.time() - start_time
                 print(f'Iteration: {i}', f'loss: {loss.numpy():0.6f}', f'time: {elapsed}')
                 history.append(loss)
                 start_time = time.time()
+                
 
         return history
 
@@ -297,7 +343,7 @@ class VPINN(tf.keras.Model):
             elem=np.stack([self.b.Base_dx[:,i],self.b.Base_dy[:,i]])
             grad.append(elem)
 
-        self.grad_test=tf.constant(grad,dtype=tf.float64)
+        self.grad_test=tf.constant(grad)
 
     def generate_points_on_edge(self,point1, point2, num_points):
         x_vals = np.linspace(point1[0], point2[0], num_points,endpoint=False)
@@ -434,7 +480,7 @@ class VPINN(tf.keras.Model):
         xy_quad_total = np.array(xy_quad_total,dtype=np.float64)
         self.xy_quad_total=tf.constant(xy_quad_total,dtype=tf.float64)
 
-        print(np.shape(self.w_quad[:,0]),np.shape(self.b.Base[:,0]))
+        #print(np.shape(self.w_quad[:,0]),np.shape(self.b.Base[:,0]))
 
 
         #print(self.F_total_edges)
