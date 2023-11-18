@@ -338,9 +338,9 @@ class VPINN(tf.keras.Model):
     def train(self, iter):
 
 
-
-        self.a_vertices = tf.Variable(tf.zeros((self.n_vertices,self.n_triangles),dtype=tf.float64)) #
-        self.a_edges = tf.Variable(tf.zeros((self.n_edges,self.n_triangles),dtype=tf.float64)) #
+        
+        #self.a_vertices = tf.Variable(tf.zeros((self.n_vertices,self.n_triangles),dtype=tf.float64)) #
+        #self.a_edges = tf.Variable(tf.zeros((self.n_edges,self.n_triangles),dtype=tf.float64)) #
 
         history = []
 
