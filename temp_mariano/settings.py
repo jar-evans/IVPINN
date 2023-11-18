@@ -11,14 +11,11 @@ class PROBDEF:
         self.r = r
 
     def u_exact(self, x, y):
-        utemp = (0.1*tf.sin(self.omegax*x) + tf.tanh(self.r*x)) * \
-            tf.sin(self.omegay*(y))
+        utemp = tf.cos(2*np.pi*x)*tf.sin(2*np.pi*y)
         return utemp
 
     def f_exact(self, x, y):
-        gtemp = (-0.1*(self.omegax**2)*tf.sin(self.omegax*x) - (2*self.r**2)*(tf.tanh(self.r*x))/((tf.cosh(self.r*x))**2))*tf.sin(self.omegay*(y))\
-            + (0.1*tf.sin(self.omegax*x) + tf.tanh(self.r*x)) * \
-            (-self.omegay**2 * tf.sin(self.omegay*(y)))
+        gtemp =4*np.pi*np.pi*(tf.cos(2*np.pi*x)*tf.sin(2*np.pi*y)+tf.sin(2*np.pi*y)*tf.cos(2*np.pi*x))
         return gtemp
 
     def v(self, x, y, r):
