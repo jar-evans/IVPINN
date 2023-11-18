@@ -41,7 +41,7 @@ class VPINN(tf.keras.Model):
         if NN:
             self.set_NN(NN)
 
-    def set_NN(self, NN, LR=0.001):
+    def set_NN(self, NN, LR=0.01):
         np.random.seed(SEED)
         tf.random.set_seed(SEED)
         # initialise the NN
@@ -59,9 +59,10 @@ class VPINN(tf.keras.Model):
         """input tensor of size (n,2) returns tensor of size (n,1)"""
         return self.NN(x)
     
+    @tf.function
     def eval_grad_NN(self,x):
         """input tensor of size (n,2) returns tensor of size (n,2) ->on each row you have first der x and then der y"""
-        with tf.GradientTape(persistent=True) as tape:
+        with tf.GradientTape() as tape:
             tape.watch(x)
             res=self.NN(x)
         grad=tape.gradient(res,x)
@@ -78,7 +79,7 @@ class VPINN(tf.keras.Model):
 
             tape_.watch(x) #or here 
             laplacian=tape_.gradient(grad,x)
-        return grad
+        return laplacian
     
     def eval_NN_and_grad(self,x):
         """input tensor of size (n,2) returns tensor eval of size (n,2)  + tensor grad of size (n,2)"""
@@ -103,12 +104,9 @@ class VPINN(tf.keras.Model):
         return tf.reduce_mean(tf.square(u_bound_exact - prediction))
 
     
-    @tf.function
-    def variational_loss(self):
-
-
-        a_vertices = np.zeros((self.n_vertices,1),dtype=np.float64) #
-        a_edges = np.zeros((self.n_edges,1),dtype=np.float64) #
+    def custom_loss(self):
+        #a_vertices = self.a_vertices #
+        #a_edges = self.a_edges #
 
         n_triangles=self.n_triangles
         xy_quad_total =self.xy_quad_total
@@ -119,8 +117,9 @@ class VPINN(tf.keras.Model):
 
         #eval in one shot 
         x_eval=tf.reshape(xy_quad_total,(-1,2))
+
         grad=self.eval_grad_NN(x_eval)
-        grad=tf.reshape(grad,(n_triangles,-1,2))
+        grad_=tf.reshape(grad,(n_triangles,-1,2))
 
         F_total_vertices=self.F_total_vertices
         F_total_edges=self.F_total_edges
@@ -129,20 +128,15 @@ class VPINN(tf.keras.Model):
 
         grad_test=self.grad_test  
 
-
-
-
-
-        a_vertices = tf.zeros((self.n_vertices, 1), dtype=tf.float64)
-        a_edges = tf.zeros((self.n_edges, 1), dtype=tf.float64)
+        sum_of_vectors = tf.Variable(tf.zeros((self.n_vertices,1),dtype=tf.float64))
         
+
 
         for index,triangle in enumerate(self.mesh['triangles']):
 
-            a_element=np.array(np.zeros((6,), dtype=np.float64))
 
 
-            grad_elem=tf.transpose(grad[index])
+            grad_elem=tf.transpose(grad_[index])
    
 
             # get quadrature points in arb. element and get jacobian
@@ -158,29 +152,118 @@ class VPINN(tf.keras.Model):
             l1=J*tf.reduce_sum(w_quad*grad_test_elem[4]*grad_elem)
             l2=J*tf.reduce_sum(w_quad*grad_test_elem[5]*grad_elem)
 
+
+            indices = tf.constant([[triangle[0]], [triangle[1]], [triangle[2]]])
+
+
+            
+            updates = [v0, v1, v2]
+            shape=[self.n_vertices]
+            scatter = tf.scatter_nd(indices, updates, shape)
+            scatter_=tf.expand_dims(scatter,axis=1)
+            
+        
+            sum_of_vectors = tf.reduce_sum([sum_of_vectors, scatter_], axis=0)
+
+
+            #a_vertices[triangle[0]]+=a_element[0]
+
+        
+            
+           
+        
+
+
+        #tf.reduce_sum(a_vertices,axis=1,keepdims=True)-F_total_vertices,tf.reduce_sum(a_edges,axis=1,keepdims=True)-F_total_edges
+        return tf.reduce_sum(tf.square(sum_of_vectors-F_total_vertices))
+
+
+    #@tf.function
+    def variational_loss(self):
+
+
+
+        a_vertices = self.a_vertices #
+        a_edges = self.a_edges #
+
+        n_triangles=self.n_triangles
+        xy_quad_total =self.xy_quad_total
+        dof=self.dof
+
+        w_quad = tf.concat([self.w_quad.T,self.w_quad.T], axis=0)
+
+
+        #eval in one shot 
+        x_eval=tf.reshape(xy_quad_total,(-1,2))
+
+        grad=self.eval_grad_NN(x_eval)
+        grad_=tf.reshape(grad,(n_triangles,-1,2))
+
+        F_total_vertices=self.F_total_vertices
+        F_total_edges=self.F_total_edges
+
+   
+
+        grad_test=self.grad_test  
+
+
+
+
+        res=0.0
+
+        for index,triangle in enumerate(self.mesh['triangles']):
+
+
+
+            grad_elem=tf.transpose(grad_[index])
+   
+
+            # get quadrature points in arb. element and get jacobian
+            B,c,J,B_D,B_DD=self.b.change_of_coordinates(self.mesh['vertices'][triangle])
+
+            grad_test_elem=B_D @ grad_test
+      
+            v0= J*tf.reduce_sum(w_quad*grad_test_elem[0]*grad_elem)
+            v1= J*tf.reduce_sum(w_quad*grad_test_elem[1]*grad_elem)
+            v2= J*tf.reduce_sum(w_quad*grad_test_elem[2]*grad_elem)
+
+            l0=J*tf.reduce_sum(w_quad*grad_test_elem[3]*grad_elem)
+            l1=J*tf.reduce_sum(w_quad*grad_test_elem[4]*grad_elem)
+            l2=J*tf.reduce_sum(w_quad*grad_test_elem[5]*grad_elem)
+
+
+
             #a_vertices[triangle[0]]+=a_element[0]
             
+            """
             if (self.mesh['vertex_markers'][triangle[0]]==0):
-                    tf.tensor_scatter_nd_update(a_vertices, [triangle[0],1], v0)
+                   # tf.tensor_scatter_nd_update(a_vertices, [triangle[0],1], v0)
+                    a_vertices[triangle[0],index].assign(v0)
 
 
             if (self.mesh['vertex_markers'][triangle[1]]==0):
-                    tf.tensor_scatter_nd_update(a_vertices, [triangle[1],1], v1)
+                   # tf.tensor_scatter_nd_update(a_vertices, [triangle[1],1], v1)
+                    a_vertices[triangle[1],index].assign(v1)
  
 
             if (self.mesh['vertex_markers'][triangle[2]]==0):
-                    tf.tensor_scatter_nd_update(a_vertices, [triangle[2],1], v0)
+                  #  tf.tensor_scatter_nd_update(a_vertices, [triangle[2],1], v2)
+                    a_vertices[triangle[2],index].assign(v2)
 
             if(self.b.r>=2):
                     if(self.mesh['edge_markers'][self.mesh['edges_index_inside_triangle'][index][0]]==0):
-                        tf.tensor_scatter_nd_update(a_edges, [self.mesh['edges_index_inside_triangle'][index][0],1], l0)
+                       # tf.tensor_scatter_nd_update(a_edges, [self.mesh['edges_index_inside_triangle'][index][0],1], l0)
+                        a_edges[self.mesh['edges_index_inside_triangle'][index][0],index].assign(l0)
 
                     if(self.mesh['edge_markers'][self.mesh['edges_index_inside_triangle'][index][1]]==0):
-                        tf.tensor_scatter_nd_update(a_edges, [self.mesh['edges_index_inside_triangle'][index][1],1], l1)
+                        #tf.tensor_scatter_nd_update(a_edges, [self.mesh['edges_index_inside_triangle'][index][1],1], l1)
+                        a_edges[self.mesh['edges_index_inside_triangle'][index][1],index].assign(l1)
 
                     if(self.mesh['edge_markers'][self.mesh['edges_index_inside_triangle'][index][2]]==0):
-                        tf.tensor_scatter_nd_update(a_edges, [self.mesh['edges_index_inside_triangle'][index][2],1], l2)
+                        #tf.tensor_scatter_nd_update(a_edges, [self.mesh['edges_index_inside_triangle'][index][2],1], l2)
+                        a_edges[self.mesh['edges_index_inside_triangle'][index][2],index].assign(l2)
 
+            """
 
             """
             for r in range(self.b.n):
@@ -213,33 +296,39 @@ class VPINN(tf.keras.Model):
 
             #print(F_total_edges)
             """
+            break
 
 
-
-        return a_vertices-F_total_vertices,a_edges-F_total_edges
+        #tf.reduce_sum(a_vertices,axis=1,keepdims=True)-F_total_vertices,tf.reduce_sum(a_edges,axis=1,keepdims=True)-F_total_edges
+        return tf.reduce_sum(v0+v1+v2+l0+l1+l2)
     
 
 
 
 
-    @tf.function
+    #@tf.function
     def loss_total(self):
-        loss_b = self.boundary_loss()
-        #res_vertices,res_edges = self.variational_loss()
-        return res_vertices,res_edges #+loss_v
-
-    @tf.function
+        #loss_b = self.boundary_loss(tape)
+        #res = self.variational_loss(tape)
+        res=self.custom_loss()
+        return  res
+    #@tf.function
     def loss_gradient(self):
-        
-        with tf.GradientTape(persistent=True) as loss_grad:
-            loss_grad.watch(self.xy_quad_total)
-            res_vertices,res_edges = self.loss_total()
-            loss=tf.reduce_sum(tf.square(res_vertices))+tf.reduce_sum(tf.square(res_edges))/self.dof
 
-        gradient = loss_grad.gradient(loss, self.NN.trainable_variables)
+       # self.a_vertices.assign(tf.zeros((self.n_vertices,self.n_triangles),dtype=tf.float64))
+       # self.a_edges.assign(tf.zeros((self.n_edges,self.n_triangles),dtype=tf.float64))
+        
+        with tf.GradientTape() as tape:
+            #loss_grad.watch(self.xy_quad_total)
+            tape.watch(self.NN.trainable_variables)
+            loss = self.loss_total()
+            print(loss)
+            #loss=(tf.reduce_sum(tf.square(res_vertices))+tf.reduce_sum(tf.square(res_edges)))/self.dof
+
+        gradient = tape.gradient(loss, self.NN.trainable_variables)
         return loss, gradient
 
-    @tf.function
+    #@tf.function
     def gradient_descent(self):
         loss, gradient = self.loss_gradient()
         
@@ -247,6 +336,11 @@ class VPINN(tf.keras.Model):
         return loss
 
     def train(self, iter):
+
+
+
+        self.a_vertices = tf.Variable(tf.zeros((self.n_vertices,self.n_triangles),dtype=tf.float64)) #
+        self.a_edges = tf.Variable(tf.zeros((self.n_edges,self.n_triangles),dtype=tf.float64)) #
 
         history = []
 
@@ -256,7 +350,8 @@ class VPINN(tf.keras.Model):
             loss = self.gradient_descent()
             if i % 100 == 0:
                 elapsed = time.time() - start_time
-                print(f'Iteration: {i}', f'loss: {loss.numpy():0.6f}', f'time: {elapsed}')
+                print(f'Iteration: {i}', f'loss: {loss.numpy():0.10f}', f'time: {elapsed}')
+
                 history.append(loss)
                 start_time = time.time()
                 
