@@ -2,7 +2,7 @@ import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
 from pyDOE import lhs
-from GaussJacobiQuadRule_V3 import GaussLobattoJacobiWeights
+#from GaussJacobiQuadRule_V3 import GaussLobattoJacobiWeights
 from interpolator import *
 import time
 SEED = 42
