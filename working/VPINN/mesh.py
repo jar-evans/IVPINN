@@ -6,10 +6,10 @@ print()
 print('generate mesh lib imported')
 print()
 
-def generate_mesh(level_of_refinment):
+def generate_mesh(domain,level_of_refinment):
 
 
-    A = dict(vertices=np.array(((0, 0), (1, 0), (1, 1), (0, 1))))
+    A = dict(vertices=np.array(domain))
     B = tr.triangulate(A,'qnea'+str(level_of_refinment))
     
     #plotting mesh
@@ -43,6 +43,8 @@ def generate_mesh(level_of_refinment):
     B['keep']=keep
     B['edges_index_inside_triangle']=edges_index_inside_triangle
     B['h']=find_h(B)
+
+    B['domain']=domain
 
 
     return B
