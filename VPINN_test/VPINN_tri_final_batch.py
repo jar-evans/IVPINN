@@ -128,7 +128,7 @@ class VPINN():
         u_bound_exact=self.u_bound_exact
         return tf.reduce_mean(tf.square(u_bound_exact - prediction))
 
-    @tf.function
+    #@tf.function
     def custom_loss(self, big_tri):
         #a_vertices = self.a_vertices #
         #a_edges = self.a_edges #
@@ -252,14 +252,14 @@ class VPINN():
         return (tf.reduce_sum(tf.square(sum_of_vectors_vertices-F_total_vertices))+tf.reduce_sum(tf.square(sum_of_vectors_edges-F_total_edges)))/self.dof
 
 
-    @tf.function
+    #@tf.function
     def loss_total(self, big_tri): #alter to take big triangle id
         loss_b = self.boundary_loss()
         #res = self.variational_loss(tape)
         res=self.custom_loss(big_tri)
         return  res+loss_b
     
-    @tf.function
+    #@tf.function
     def loss_gradient(self, big_tri):
 
        # self.a_vertices.assign(tf.zeros((self.n_vertices,self.n_triangles),dtype=tf.float64))
@@ -275,7 +275,7 @@ class VPINN():
         gradient = tape.gradient(loss, self.NN.trainable_variables)
         return loss, gradient
 
-    @tf.function
+    #@tf.function
     def gradient_descent(self, big_tri):
         loss, gradient = self.loss_gradient(big_tri)
         
