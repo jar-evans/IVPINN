@@ -66,10 +66,20 @@ class Mesh:
     def generate_sub_mesh(self, element: int, N: int):
         """Creates"""
 
-        sub_mesh = self.generate_reference_sub_mesh(N)
+        sub_mesh, mxmy = self.generate_reference_sub_mesh(N)
+       
         sub_mesh["vertices"], J = self.translate(
             sub_mesh["vertices"], self._get_element_points(element)
         )
+
+        mxmy, J = self.translate(
+            np.array(mxmy), self._get_element_points(element)
+        )
+        sv = sub_mesh["vertices"]
+        sub_mesh['edge_boundary'] = ((mxmy[:,0] == 0) + (mxmy[:,1] == 0) + (mxmy[:,0] == 1) + (mxmy[:,1] == 1)).astype(int)
+        sub_mesh['vertex_boundary'] = ((sv[:,0] == 0) + (sv[:,1] == 0) + (sv[:,0] == 1) + (sv[:,1] == 1)).astype(int)
+        # can do boundary checks for nodes/edges here
+            # would return mx,my from ref_sub_mesh, then do a translate on those as well, then check for ==0,1
         return Mesh(False, mesh=sub_mesh)
 
     def compare(self, other=None):
@@ -258,6 +268,21 @@ class Mesh:
         edges = dup_free
 
         sub_mesh["edges"] = edges
+        ###
+        
+        sub_mesh['vertex_markers'] = ((grid[:,0] == 0) + (grid[:,1] == 0) + (grid[:,0] == 1) + (grid[:,1] == 1)\
+                                        + (grid[:,0] + grid[:,1] == 1)).astype(int)
+        
+        mms = []
+        mxmy = []
+        for edge in edges:
+            pps = sub_mesh['vertices'][edge]
+            mx = pps[0,0] + (pps[1,0] - pps[0,0])/2
+            my = pps[0,1] + (pps[1,1] - pps[0,1])/2
+            mxmy.append([mx, my])
+            mms.append(int((mx == 0) + (my == 0) + (np.round(mx+my,4) == 1)))
+        sub_mesh['edge_markers'] = mms
+        ###
 
         l = []
         temp = []
@@ -270,9 +295,10 @@ class Mesh:
         temp = np.asarray(temp)
 
         sub_mesh["flipped"] = l
-        sub_mesh["edge_ids"] = temp
-        sub_mesh["edge_markers"] = edge_markers
-        return sub_mesh
+        sub_mesh["edges_index_inside_triangle"] = temp
+        # sub_mesh["edge_markers"] = edge_markers
+        #sub_mesh["edges_inside_triangle blah blah blag "] = ~edge_markers
+        return sub_mesh, mxmy
 
 
     def get_triangle_edges(self, triangle_vertices, edges):
@@ -294,7 +320,6 @@ class Mesh:
             triangle_edges.append(index)
 
             if ii > jj:
-                ii, jj = jj, ii
                 keep[i] = 1
 
         triangle_edges = np.array(triangle_edges)
@@ -389,9 +414,6 @@ class Mesh:
             y = self.nodes_df.y[lil_triangle]
             plt.triplot(x, y, color="green")
 
-
-
-
         plt.plot(
             self.domain["vertices"][:, 0], self.domain["vertices"][:, 1], "ro"
         )  # Plot original vertices as red dots
@@ -442,12 +464,32 @@ class Mesh:
 
         edges_df["nodes"] = edges_df.nodes.apply(list)
 
-        def find_midpoint(x):
+        def get_length(x):
             xy = nodes_df.iloc[x][['x','y']]
+            dxdy = xy.diff().dropna().values
+            return np.sqrt(np.sum(dxdy**2))
+
+        def find_midpoint(x):
+            xy = nodes_df.iloc[x][['x','y']]        
             return np.round(np.sum(xy.values, axis=0)/2, 6)
 
         midpoints = edges_df.nodes.apply(find_midpoint)
+        edge_length = edges_df.nodes.apply(get_length)
+        # print(edge_length)
         edges_df['midpoints'] = midpoints
+        edges_df['edge_length'] = edge_length
+
+        ###
+        m = np.array(midpoints.to_list())
+        m_x = m[:,0]
+        m_y = m[:,1]
+        boundary = (m_x == 0) + (m_x == 1) + (m_y==0) + (m_y ==1)
+        edges_df['boundary'] = boundary
+
+        a = (edges_df.big_triangle_id.apply(len) > 1).values + boundary
+
+        edges_df['internal'] = ~a
+        ###
 
         triangles_df = pd.DataFrame(columns=['local_id', 'nodes', 'edges', 'big_triangle_id'])
 
@@ -487,3 +529,26 @@ class Mesh:
         self.nodes_df = nodes_df
         self.edges_df = edges_df
         self.triangles_df = triangles_df
+
+    #     self.update_dicts()
+
+    # def update_dicts(self):
+    #     print("updating dicts")
+    #     for i in range(self.N):
+    #         filt = self.triangles_df.big_triangle_id == i
+
+    #         nodes = self.triangles_df[filt].nodes.to_list()
+    #         nodes = np.reshape(np.array(nodes), (-1,1))
+    #         nodes = np.unique(nodes)
+
+    #         edges = self.triangles_df[filt].edges.to_list()
+    #         edges = np.reshape(np.array(edges), (-1,1))
+    #         edges = np.unique(edges)
+
+    #         self.meshed_elements[i].mesh['vertex_boundary'] = self.nodes_df.boundary[nodes].values.astype(int)
+    #         # self.meshed_elements[i].mesh['vertex_markers'] = self.nodes_df.internal[nodes].values.astype(int)
+
+    #         self.meshed_elements[i].mesh['edge_boundary'] = self.edges_df.boundary[edges].values.astype(int)
+    #         # self.meshed_elements[i].mesh['edge_markers'] = self.edges_df.internal[edges].values.astype(int)
+
+            
