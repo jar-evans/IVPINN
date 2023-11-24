@@ -49,6 +49,20 @@ class VPINN():
         if NN:
             self.set_NN(NN)
 
+    def summary(self):
+        print('-->local mesh : ')
+        print('     n_triangles : ',self.n_triangles)
+        print('     n_vertices  : ',self.n_vertices)
+        print('     n_edges     : ',self.n_edges)
+        print('     h           : ',self.mesh['h'])
+        print('-->test_fun      : ')
+        print('     order       : ',self.params['n_test'])
+        print('     dof         : ',self.dof)
+        print('     total_dof   : ',self.n_big_triangles*self.dof)
+        print('-->boundary_cond : ')
+        print('     n_boundary  : ',self.n_boudary_points)
+        print()
+
     def set_NN(self, NN, LR=0.01):
  
 
@@ -115,12 +129,14 @@ class VPINN():
         return tf.reduce_mean(tf.square(u_bound_exact - prediction))
 
     @tf.function
-    def custom_loss(self):
+    def custom_loss(self, big_tri):
         #a_vertices = self.a_vertices #
         #a_edges = self.a_edges #
 
+        element = self.mesh.meshed_elements[big_tri].mesh
+
         n_triangles=self.n_triangles   #will be n_lil triangles
-        xy_quad_total =self.xy_quad_total
+        xy_quad_total =self.xy_quad_big_tri[big_tri]
         dof=self.dof
 
         w_quad = tf.concat([self.w_quad.T,self.w_quad.T], axis=0)
@@ -132,8 +148,8 @@ class VPINN():
         grad=self.eval_grad_NN(x_eval)
         grad_=tf.reshape(grad,(n_triangles,-1,2))
 
-        F_total_vertices=self.F_total_vertices  # alter to elementwise (take big triangle id add dim.)
-        F_total_edges=self.F_total_edges        # alter to elementwise (take big triangle id add dim.)
+        F_total_vertices=self.F_big_tri_vertices[big_tri]  # alter to elementwise (take big triangle id add dim.)
+        F_total_edges=self.F_big_tri_edges[big_tri]      # alter to elementwise (take big triangle id add dim.)
 
    
 
@@ -146,7 +162,7 @@ class VPINN():
 
 
 
-        for index,triangle in enumerate(self.mesh['triangles']):  # will iterate over little triangle in each big element
+        for index,triangle in enumerate(element['triangles']):  # will iterate over little triangle in each big element
 
 
             # element = self.mesh.meshed_elements[i].mesh
@@ -155,7 +171,7 @@ class VPINN():
    
 
             # get quadrature points in arb. element and get jacobian
-            B,c,J,B_D,B_DD=self.b.change_of_coordinates(self.mesh['vertices'][triangle])
+            B,c,J,B_D,B_DD=self.b.change_of_coordinates(element['vertices'][triangle])
 
             grad_test_elem=B_D @ grad_test
       
@@ -167,15 +183,15 @@ class VPINN():
             l1=J*tf.reduce_sum(w_quad*grad_test_elem[4]*grad_elem)
             l2=J*tf.reduce_sum(w_quad*grad_test_elem[5]*grad_elem)
 
-            if (self.mesh['vertex_markers'][triangle[0]]==1):
+            if (element['vertex_markers'][triangle[0]]==1):
                 v0=v0*0.0
 
 
-            if (self.mesh['vertex_markers'][triangle[1]]==1):
+            if (element['vertex_markers'][triangle[1]]==1):
                 v1=v1*0.0
  
 
-            if (self.mesh['vertex_markers'][triangle[2]]==1):
+            if (element['vertex_markers'][triangle[2]]==1):
                 v2=v2*0.0
 
 
@@ -184,13 +200,13 @@ class VPINN():
 
 
 
-            if(self.mesh['edge_markers'][self.mesh['edges_index_inside_triangle'][index][0]]==1):
+            if(element['edge_markers'][element['edges_index_inside_triangle'][index][0]]==1):
                 l0=l0*0.0
 
-            if(self.mesh['edge_markers'][self.mesh['edges_index_inside_triangle'][index][1]]==1):
+            if(element['edge_markers'][element['edges_index_inside_triangle'][index][1]]==1):
                 l1=l1*0.0
 
-            if(self.mesh['edge_markers'][self.mesh['edges_index_inside_triangle'][index][2]]==1):
+            if(element['edge_markers'][element['edges_index_inside_triangle'][index][2]]==1):
                 l2=l2*0.0
             
 
@@ -201,7 +217,7 @@ class VPINN():
 
 
             indices_vertices = tf.constant([[triangle[0]], [triangle[1]], [triangle[2]]])
-            indices_edges = tf.constant([[self.mesh['edges_index_inside_triangle'][index][0]], [self.mesh['edges_index_inside_triangle'][index][1]], [self.mesh['edges_index_inside_triangle'][index][2]]])
+            indices_edges = tf.constant([[element['edges_index_inside_triangle'][index][0]], [element['edges_index_inside_triangle'][index][1]], [element['edges_index_inside_triangle'][index][2]]])
 
             
             updates_vertices = [v0, v1, v2]
@@ -237,14 +253,14 @@ class VPINN():
 
 
     @tf.function
-    def loss_total(self): #alter to take big triangle id
+    def loss_total(self, big_tri): #alter to take big triangle id
         loss_b = self.boundary_loss()
         #res = self.variational_loss(tape)
-        res=self.custom_loss()
+        res=self.custom_loss(big_tri)
         return  res+loss_b
     
     @tf.function
-    def loss_gradient(self):
+    def loss_gradient(self, big_tri):
 
        # self.a_vertices.assign(tf.zeros((self.n_vertices,self.n_triangles),dtype=tf.float64))
        # self.a_edges.assign(tf.zeros((self.n_edges,self.n_triangles),dtype=tf.float64))
@@ -252,7 +268,7 @@ class VPINN():
         with tf.GradientTape() as tape:
             #loss_grad.watch(self.xy_quad_total)
             tape.watch(self.NN.trainable_variables)
-            loss = self.loss_total() #alter to take big triangle id
+            loss = self.loss_total(big_tri) #alter to take big triangle id
             #print(loss)
             #loss=(tf.reduce_sum(tf.square(res_vertices))+tf.reduce_sum(tf.square(res_edges)))/self.dof
 
@@ -260,8 +276,8 @@ class VPINN():
         return loss, gradient
 
     @tf.function
-    def gradient_descent(self):
-        loss, gradient = self.loss_gradient()
+    def gradient_descent(self, big_tri):
+        loss, gradient = self.loss_gradient(big_tri)
         
         self.optimizer.apply_gradients(zip(gradient, self.NN.trainable_variables))
         return loss
@@ -278,11 +294,16 @@ class VPINN():
 
         start_time = time.time()
         for i in range(iter+1):
-            self.sum_of_vectors_vertices.assign(tf.zeros_like(self.sum_of_vectors_vertices))       #
-            self.sum_of_vectors_edges.assign(tf.zeros_like(self.sum_of_vectors_edges))             #
+            # self.sum_of_vectors_vertices.assign(tf.zeros_like(self.sum_of_vectors_vertices))       #
+            # self.sum_of_vectors_edges.assign(tf.zeros_like(self.sum_of_vectors_edges))             #
 
+            loss = 0.0
+            for big_tri in range(self.n_big_triangles):
+                self.sum_of_vectors_vertices.assign(tf.zeros_like(self.sum_of_vectors_vertices))       #
+                self.sum_of_vectors_edges.assign(tf.zeros_like(self.sum_of_vectors_edges))             #
 
-            loss = self.gradient_descent()
+                loss += self.gradient_descent(big_tri)
+
             if i % 10 == 0:
                 elapsed = time.time() - start_time
                 print(f'Iteration: {i}', f'loss: {loss.numpy():0.10f}', f'time: {elapsed}')
@@ -299,8 +320,7 @@ class VPINN():
 
     def generate_boundary_points(self):
         # Boundary points
-        a, b, c, d =self.mesh['domain']
-   
+        a, b, c, d =((0,0),(1,0),(1,1),(0,1)) #TODO: change
 
         boundary_points = self.generate_rectangle_points(a, b, c, d, self.params['n_bound']+1)
 
@@ -324,12 +344,23 @@ class VPINN():
 
 
     def construct_RHS(self):
-        F = []
-        for i in range(self.mesh.N):
-            F.append(self.construct_RHS_big_tri(i))
+        xy_quad_big_tri = []
+        F_big_tri_vertices = []
+        F_big_tri_edges = []
 
-        F = np.array(F, dtype=np_type)
-        self.F_big_tri = tf.constant(F, dtype=tf_type)
+        for i in range(self.mesh.N):
+            a, b, c = self.construct_RHS_big_tri(i)
+            xy_quad_big_tri.append(a)
+            F_big_tri_vertices.append(b)
+            F_big_tri_edges.append(c)
+
+        xy_quad_big_tri = np.array(xy_quad_big_tri, dtype=np_type)
+        F_big_tri_vertices = np.array(F_big_tri_vertices, dtype=np_type)
+        F_big_tri_edges = np.array(F_big_tri_edges, dtype=np_type)
+
+        self.xy_quad_big_tri = tf.constant(xy_quad_big_tri, dtype=tf_type)
+        self.F_big_tri_vertices = tf.constant(F_big_tri_vertices, dtype=tf_type)
+        self.F_big_tri_edges = tf.constant(F_big_tri_edges, dtype=tf_type)
 
 
     def evaluate_test_and_inter_functions(self):
@@ -423,7 +454,7 @@ class VPINN():
             
 
 
-            J_element.append(J)
+            # J_element.append(J)
 
             # evaluate f on arb. quad points
             f_quad_element = self.pb.f_exact(xy_quad_element[:, 0], xy_quad_element[:, 1])
@@ -469,11 +500,16 @@ class VPINN():
             #J_total.append(J)
 
 
-        self.J_total=J_total
-        self.F_total_vertices=tf.constant(F_total_vertices,dtype=tf.float64)
-        self.F_total_edges=tf.constant(F_total_edges,dtype=tf.float64)
-        xy_quad_total = np.array(xy_quad_total,dtype=np.float64)
-        self.xy_quad_total=tf.constant(xy_quad_total,dtype=tf.float64)
+        # self.J_total=J_total
+        F_total_vertices = np.array(F_total_vertices, dtype=np_type)
+        F_total_edges = np.array(F_total_edges, dtype=np_type)
+        xy_quad_total = np.array(xy_quad_total, dtype=np_type)
+
+        F_total_vertices=tf.constant(F_total_vertices,dtype=tf_type)
+        F_total_edges=tf.constant(F_total_edges,dtype=tf_type)
+        xy_quad_total=tf.constant(xy_quad_total,dtype=tf_type)
+
+        return xy_quad_total, F_total_vertices, F_total_edges
 
         #print(np.shape(self.w_quad[:,0]),np.shape(self.b.Base[:,0]))
 

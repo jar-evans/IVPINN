@@ -19,6 +19,14 @@ class Mesh:
             self.mesh = mesh
             self.N = self._get_number_elements()
 
+    @staticmethod
+    def find_h(mesh):
+        h=-1
+        for edges in mesh['edges']:
+            vertices=mesh['vertices'][edges]
+            h=max(h,np.sqrt((vertices[0,0]-vertices[1,0])**2 +(vertices[0,1]-vertices[1,1])**2))
+            return h
+
     def generate_mesh(self, h: float) -> None:
         """Generates Delaunay mesh of given domain."""
         self.mesh = self.create_mesh(self.domain, h)
