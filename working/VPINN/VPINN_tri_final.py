@@ -33,16 +33,40 @@ class VPINN():
 
 
 
+
+
+
         # generate all points/coordinates to be used in the process
         self.generate_boundary_points()
 
 
+        self.n_boudary_points=np.shape(self.boundary_points)[0]
+
         # self.generate_inner_points()
-        self.pre_compute()
+        self.pre_compute()  
+
 
         # add the neural network to the class if given at initialisation
         if NN:
             self.set_NN(NN)
+
+
+        self.summary()
+
+
+    def summary(self):
+        print('-->mesh : ')
+        print('     n_triangles : ',self.n_triangles)
+        print('     n_vertices  : ',self.n_vertices)
+        print('     n_edges     : ',self.n_edges)
+        print('     h           : ',self.mesh['h'])
+        print('-->test_fun      : ')
+        print('     order       : ',self.params['n_test'])
+        print('     dof         : ',self.dof)
+        print('-->boundary_cond : ')
+        print('     n_boundary  : ',self.n_boudary_points)
+        print()
+
 
     def set_NN(self, NN, LR=0.01):
  
@@ -260,9 +284,16 @@ class VPINN():
         self.optimizer.apply_gradients(zip(gradient, self.NN.trainable_variables))
         return loss
 
+
+    
     def train(self, iter):
         #self.a_vertices = tf.Variable(tf.zeros((self.n_vertices,self.n_triangles),dtype=tf.float64)) #
         #self.a_edges = tf.Variable(tf.zeros((self.n_edges,self.n_triangles),dtype=tf.float64)) #
+
+            
+
+
+
 
         history = []
 
