@@ -26,10 +26,15 @@ class VPINN():
 
         self.mesh = mesh
 
-        self.n_vertices=len(mesh['vertices'])
-        self.n_edges=len(mesh['edges'])
-        self.n_triangles=len(mesh['triangles'])
-        self.dof=(self.n_vertices-np.sum(self.mesh['vertex_markers']))+(self.n_edges-np.sum(self.mesh['edge_markers']))
+        temp_element = mesh.meshed_elements[0].mesh
+
+        self.n_big_triangles = self.mesh.N
+
+        self.n_vertices=len(temp_element['vertices'])
+        self.n_edges=len(temp_element['edges'])
+        self.n_triangles=len(temp_element['triangles'])
+
+        self.dof=(self.n_vertices-np.sum(temp_element['vertex_markers']))+(self.n_edges-np.sum(temp_element['edge_markers']))
 
 
 
@@ -315,8 +320,16 @@ class VPINN():
 
         self.evaluate_test_and_inter_functions()
 
-        self.construct_RHS()
+        F = self.construct_RHS()
 
+
+    def construct_RHS(self):
+        F = []
+        for i in range(self.mesh.N):
+            F.append(self.construct_RHS_big_tri(i))
+
+        F = np.array(F, dtype=np_type)
+        self.F_big_tri = tf.constant(F, dtype=tf_type)
 
 
     def evaluate_test_and_inter_functions(self):
@@ -373,7 +386,7 @@ class VPINN():
         self.w_quad = np.reshape(self.w_quad, (len(self.w_quad), 1))
 
  
-    def construct_RHS(self):  # in general stays the same but needs to be elementwise for each big triangel
+    def construct_RHS_big_tri(self, i):  # in general stays the same but needs to be elementwise for each big triangel
                                 # i.e. add index argument (will yield rhs per big triangle)
 
         # sub_mesh = self.mesh.meshed_element[n]
@@ -383,6 +396,8 @@ class VPINN():
 
         # vx_quad = self.v_evaluations["vx_quad"]
         # vy_quad = self.v_evaluations["vy_quad"]
+
+        element = self.mesh.meshed_elements[i].mesh
 
         F_total_vertices = np.zeros((self.n_vertices,1),dtype=np.float64)
         F_total_edges = np.zeros((self.n_edges,1),dtype=np.float64)
@@ -394,14 +409,14 @@ class VPINN():
         F_total=[]
         
 
-        for index,triangle in enumerate(self.mesh['triangles']):
+        for index,triangle in enumerate(element['triangles']):
             F_element=[]
             x_element=[]
             J_element=[]
             x_quad=self.points
 
             # get quadrature points in arb. element and get jacobian
-            B,c,J,B_D,B_DD=self.b.change_of_coordinates(self.mesh['vertices'][triangle])
+            B,c,J,B_D,B_DD=self.b.change_of_coordinates(element['vertices'][triangle])
 
             xy_quad_element=(B@x_quad.T +c).T
       
@@ -422,30 +437,30 @@ class VPINN():
             F_element=np.array(F_element,dtype=np.float64)
             J_element=np.array(J_element,dtype=np.float64)
 
-            if (self.mesh['vertex_markers'][triangle[0]]==0):
-                    F_total_vertices[triangle[0]]+=F_element[0]
+            if (element['vertex_markers'][triangle[0]]==0):
+                F_total_vertices[triangle[0]]+=F_element[0]
 
 
-            if (self.mesh['vertex_markers'][triangle[1]]==0):
-                    F_total_vertices[triangle[1]]+=F_element[1]
+            if (element['vertex_markers'][triangle[1]]==0):
+                F_total_vertices[triangle[1]]+=F_element[1]
  
 
-            if (self.mesh['vertex_markers'][triangle[2]]==0):
-                    F_total_vertices[triangle[2]]+=F_element[2]
+            if (element['vertex_markers'][triangle[2]]==0):
+                F_total_vertices[triangle[2]]+=F_element[2]
 
 
      
 
 
             if(r>=2):
-                    if(self.mesh['edge_markers'][self.mesh['edges_index_inside_triangle'][index][0]]==0):
-                        F_total_edges[self.mesh['edges_index_inside_triangle'][index][0]]+=F_element[3]
+                if(element['edge_markers'][element['edges_index_inside_triangle'][index][0]]==0):
+                    F_total_edges[element['edges_index_inside_triangle'][index][0]]+=F_element[3]
 
-                    if(self.mesh['edge_markers'][self.mesh['edges_index_inside_triangle'][index][1]]==0):
-                            F_total_edges[self.mesh['edges_index_inside_triangle'][index][1]]+=F_element[4]
+                if(element['edge_markers'][element['edges_index_inside_triangle'][index][1]]==0):
+                        F_total_edges[element['edges_index_inside_triangle'][index][1]]+=F_element[4]
 
-                    if(self.mesh['edge_markers'][self.mesh['edges_index_inside_triangle'][index][2]]==0):
-                        F_total_edges[self.mesh['edges_index_inside_triangle'][index][2]]+=F_element[5]  
+                if(element['edge_markers'][element['edges_index_inside_triangle'][index][2]]==0):
+                    F_total_edges[element['edges_index_inside_triangle'][index][2]]+=F_element[5]  
 
             #print(F_total_edges)
 
