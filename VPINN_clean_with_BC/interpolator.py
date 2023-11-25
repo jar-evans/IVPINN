@@ -1,6 +1,6 @@
 from sympy import Matrix, Rational
 import matplotlib.pyplot as plt
-import numpy as np
+from my_types import *
 import sys
 
 # TERMINOLOGY:
@@ -17,6 +17,7 @@ import sys
 #   you need to put points=None always you can't use the method with other points(you dont' really have to)
 
 print('interpolator_lib imported')
+print()
 
 
 
@@ -56,7 +57,7 @@ class interpolator:
 
         self.change_order()
 
-        if bool:
+        if verbose:
             self.plot_nodes()
 
         self.pre=pre
@@ -124,7 +125,7 @@ class interpolator:
         """
         print("degree = ",self.r," , local dof = ",self.n," internal dof = ",self.n_inside,' points inside each edge = ',self.n_inside_edge)
 
-        # print(self.nodes)
+        print(self.nodes)
 
         plt.figure()
         plt.scatter(self.nodes[:, 0], self.nodes[:, 1])
@@ -194,7 +195,7 @@ class interpolator:
 
         n = (p + 1) * (p + 2) // 2
 
-        return np.array(nodes),np.array(nodes,dtype=np.float64),n,nodes
+        return np.array(nodes),np.array(nodes,dtype=np_type),n,nodes
     
 
 
@@ -253,13 +254,13 @@ class interpolator:
         coeffs_dx,coeffs_dy=self.generate_M_der(coeffs,verbose,1)
         coeffs_d2x,coeffs_d2y=self.generate_M_der(coeffs,verbose,2)
 
-        coeffs=np.reshape(np.array(coeffs, dtype=np.float64), (self.n, self.n))
+        coeffs=np.reshape(np.array(coeffs, dtype=np_type), (self.n, self.n))
 
-        coeffs_dx=np.reshape(np.array(coeffs_dx, dtype=np.float64),(self.n, len(self.powers_dy)))
-        coeffs_dy=np.reshape(np.array(coeffs_dy, dtype=np.float64), (self.n, len(self.powers_dy)))
+        coeffs_dx=np.reshape(np.array(coeffs_dx, dtype=np_type),(self.n, len(self.powers_dy)))
+        coeffs_dy=np.reshape(np.array(coeffs_dy, dtype=np_type), (self.n, len(self.powers_dy)))
 
-        coeffs_d2x=np.reshape(np.array(coeffs_d2x, dtype=np.float64),(self.n, len(self.powers_d2x)))
-        coeffs_d2y=np.reshape(np.array(coeffs_d2y, dtype=np.float64), (self.n, len(self.powers_d2y)))        
+        coeffs_d2x=np.reshape(np.array(coeffs_d2x, dtype=np_type),(self.n, len(self.powers_d2x)))
+        coeffs_d2y=np.reshape(np.array(coeffs_d2y, dtype=np_type), (self.n, len(self.powers_d2y)))        
 
         return coeffs,coeffs_dx,coeffs_dy,coeffs_d2x,coeffs_d2y
     
@@ -319,7 +320,7 @@ class interpolator:
           
         """
  
-        x=np.ones((np.shape(points)[0],len(pairs)),dtype=np.float64)
+        x=np.ones((np.shape(points)[0],len(pairs)),dtype=np_type)
 
         for ii,(i,j) in enumerate(pairs):
             x[:,ii]=(points[:,0]**i)*(points[:,1]**j)
@@ -389,13 +390,13 @@ class interpolator:
     #just computed one 
     def eval_powers_a_priori(self,points)->None:
 
-        self.x_pre=np.ones((np.shape(points)[0],len(self.powers)),dtype=np.float64)
+        self.x_pre=np.ones((np.shape(points)[0],len(self.powers)),dtype=np_type)
 
-        self.dx_pre=np.ones((np.shape(points)[0],len(self.powers_dx)),dtype=np.float64)
-        self.dy_pre=np.ones((np.shape(points)[0],len(self.powers_dy)),dtype=np.float64)
+        self.dx_pre=np.ones((np.shape(points)[0],len(self.powers_dx)),dtype=np_type)
+        self.dy_pre=np.ones((np.shape(points)[0],len(self.powers_dy)),dtype=np_type)
 
-        self.d2x_pre=np.ones((np.shape(points)[0],len(self.powers_d2x)),dtype=np.float64)
-        self.d2y_pre=np.ones((np.shape(points)[0],len(self.powers_d2y)),dtype=np.float64)
+        self.d2x_pre=np.ones((np.shape(points)[0],len(self.powers_d2x)),dtype=np_type)
+        self.d2y_pre=np.ones((np.shape(points)[0],len(self.powers_d2y)),dtype=np_type)
         
 
 
@@ -439,13 +440,13 @@ class interpolator:
              --> x=B @ col vec of a point  +c you will get a col vec as output,
              the same goes for B_D, B_DD """
         
-        B=np.zeros((2,2),dtype=np.float64)
-        c=np.zeros((2,1),dtype=np.float64)
+        B=np.zeros((2,2),dtype=np_type)
+        c=np.zeros((2,1),dtype=np_type)
 
 
 
-        B_D=np.zeros((2,2),dtype=np.float64)
-        B_DD=np.zeros((2,2),dtype=np.float64)
+        B_D=np.zeros((2,2),dtype=np_type)
+        B_DD=np.zeros((2,2),dtype=np_type)
 
         B[0][0]=(vertices[1, 0] - vertices[0, 0])
         B[0][1]=(vertices[2, 0] - vertices[0, 0])

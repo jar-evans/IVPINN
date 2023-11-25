@@ -1,11 +1,13 @@
-import tensorflow as tf
-import numpy as np
-import matplotlib.pyplot as plt
+from my_types import *
+from mesh import find_hs
+
 from pyDOE import lhs
+
 from interpolator import *
 import time
-SEED = 42
 from quad import *
+
+
 
 #tf.compat.v1.disable_eager_execution()
 
@@ -20,7 +22,7 @@ class VPINN(tf.keras.Model):
         # accept parameters
         self.pb = pb
         self.params = params
-        self.n_test = params['n_test']
+        self.n_test = params['N_test']
 
         self.mesh = mesh
         self.n_vertices=len(mesh['vertices'])
@@ -43,9 +45,8 @@ class VPINN(tf.keras.Model):
         self.summary()
 
     def set_NN(self, NN, LR=0.001):
-        np.random.seed(SEED)
-        tf.random.set_seed(SEED)
-        # initialise the NN
+
+
         self.NN = NN
 
         # take trainable vars
@@ -299,7 +300,7 @@ class VPINN(tf.keras.Model):
 
 
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=LR)
-        
+
         history = []
 
 
@@ -536,13 +537,15 @@ class VPINN(tf.keras.Model):
 
 
     def summary(self):
+        h_s=find_hs(self.mesh)
         print('-->mesh : ')
         print('     n_triangles : ',self.n_triangles)
         print('     n_vertices  : ',self.n_vertices)
         print('     n_edges     : ',self.n_edges)
-        print('     h           : ',self.mesh['h'])
+        print('     h_max           : ',h_s[0])
+        print('     h_min           : ',h_s[1])
         print('-->test_fun      : ')
-        print('     order       : ',self.params['n_test'])
+        print('     order       : ',self.params['N_test'])
         print('     dof         : ',self.dof)
 
 
