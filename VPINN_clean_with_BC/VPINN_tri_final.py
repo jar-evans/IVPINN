@@ -28,7 +28,6 @@ class VPINN(tf.keras.Model):
         self.n_edges=len(mesh['edges'])
         self.n_triangles=len(mesh['triangles'])
         self.dof=(self.n_vertices-np.sum(self.mesh['vertex_markers']))+(self.n_edges-np.sum(self.mesh['edge_markers']))
-        print(self.dof)
 
         self.n_el_x, self.n_el_y = self.params['n_elements']
 
@@ -40,6 +39,9 @@ class VPINN(tf.keras.Model):
         # add the neural network to the class if given at initialisation
         if NN:
             self.set_NN(NN)
+
+
+        self.summary()
 
     def set_NN(self, NN, LR=0.001):
         np.random.seed(SEED)
@@ -289,13 +291,16 @@ class VPINN(tf.keras.Model):
         self.optimizer.apply_gradients(zip(gradient, self.NN.trainable_variables))
         return loss
 
-    def train(self, iter):
+    def train(self, iter,LR):
 
 
         
         #self.a_vertices = tf.Variable(tf.zeros((self.n_vertices,self.n_triangles),dtype=tf.float64)) #
         #self.a_edges = tf.Variable(tf.zeros((self.n_edges,self.n_triangles),dtype=tf.float64)) #
 
+
+        self.optimizer = tf.keras.optimizers.Adam(learning_rate=LR)
+        
         history = []
 
 
@@ -377,18 +382,7 @@ class VPINN(tf.keras.Model):
 
 
     def evaluate_test_and_inter_functions(self):
-        #change that by using interpolator class
-        #self.v_evaluations = {}
-        #self.v_evaluations["vx_quad"] = self.pb.v(self.x_quad, self.y_quad, self.n_test)
-        #self.n_test = np.shape(self.v_evaluations["vx_quad"])[0]
-        # print(self.n_test)
-        # self.v_evaluations["dv_x_quad"], self.v_evaluations["d2v_x_quad"] = self.pb.dtest_func(self.n_test, self.x_quad)
-        # self.v_evaluations["vy_quad"] = self.pb.v_y(self.n_test, self.y_quad)
-        # self.v_evaluations["dv_y_quad"], self.v_evaluations["d2v_y_quad"] = self.pb.dtest_func(self.n_test, self.y_quad)
-        # print(np.max(self.v_evaluations["v_x_quad"]), np.min(self.v_evaluations["v_x_quad"]), np.sum(self.v_evaluations["v_x_quad"]))
-        # print(np.max(self.v_evaluations["v_y_quad"]), np.min(self.v_evaluations["v_y_quad"]), np.sum(self.v_evaluations["v_y_quad"]))
-
-
+    
         self.b=interpolator(self.params['N_test'],False,True,points=self.points)
 
         self.B=interpolator(2,False,False,points=None)
@@ -416,9 +410,6 @@ class VPINN(tf.keras.Model):
 
         rectangle_points = np.vstack((edge1, edge2, edge3, edge4))
         return rectangle_points    
-
-
-
 
 
     def generate_quadrature_points(self):
@@ -545,25 +536,20 @@ class VPINN(tf.keras.Model):
         #print(tf.shape(self.xy_quad_total))
 
 
+    def summary(self):
+        print('-->mesh : ')
+        print('     n_triangles : ',self.n_triangles)
+        print('     n_vertices  : ',self.n_vertices)
+        print('     n_edges     : ',self.n_edges)
+        print('     h           : ',self.mesh['h'])
+        print('-->test_fun      : ')
+        print('     order       : ',self.params['n_test'])
+        print('     dof         : ',self.dof)
 
 
-    def generate_test_points(self):
-        # Test points for plotting really
 
-        lower_bound, upper_bound, _, _ = self.get_domain_info()
 
-        delta_test = self.params['delta_test']
-        x_test = np.arange(lower_bound[0], upper_bound[0] + delta_test, delta_test)
-        y_test = np.arange(lower_bound[1], upper_bound[1] + delta_test, delta_test)
-        data_temp = np.asarray([[[x_test[i], y_test[j], self.pb.u_exact(x_test[i], y_test[j])]
-                                 for i in range(len(x_test))] for j in range(len(y_test))])
-    
-        n_points = len(y_test)
 
-        x_test = data_temp.flatten()[0::3]
-        y_test = data_temp.flatten()[1::3]
-        exact = data_temp.flatten()[2::3]
-        return np.hstack((x_test[:, None], y_test[:, None])), exact[:, None], n_points
 
     def plot_loss_history(self, loss_history, PLOT):
         fontsize = 24
@@ -584,130 +570,5 @@ class VPINN(tf.keras.Model):
             plt.show()
         
 
-    def plot_domain(self, PLOT):
-
-        a, b, s, _ = self.get_domain_info()
-
-        fontsize = 24
-        x_train_plot, y_train_plot = zip(*self.boundary_points)
-        fig, ax = plt.subplots(1)
-        
-        plt.scatter(x_train_plot, y_train_plot, color='red')
-        for xc in self.grid_x:
-            plt.axvline(x=xc, ymin=0.045, ymax=0.954, linewidth=1.5)
-        for yc in self.grid_y:
-            plt.axhline(y=yc, xmin=0.045, xmax=0.954, linewidth=1.5)
-
-        plt.xlim([a[0] - 0.05*s[0], b[0] + 0.05*s[0]])
-        plt.ylim([a[1] - 0.05*s[1], b[1] + 0.05*s[1]])
-        plt.xlabel('$x$', fontsize = fontsize)
-        plt.ylabel('$y$', fontsize = fontsize)
-        ax.locator_params(nbins=5)
-        plt.tick_params( labelsize = 20)
-        #fig.tight_layout()
-        fig.set_size_inches(w=11,h=11)
-
-        if PLOT == 'save':
-            plt.savefig('VPINN_domain.pdf')
-        else:
-            plt.show()
-        
-
-    def plot_prediction(self, PLOT):
-
-        points, _, n_points = self.generate_test_points()
-
-        x = points[:,0:1].flatten()
-        y = points[:,1:2].flatten()
-
-        prediction = self.eval_NN(np.reshape(x, (len(x), 1)), np.reshape(y, (len(y), 1)))[0]
-
-        x = np.asarray(np.split(x, n_points))
-        y = np.asarray(np.split(y, n_points))
-        u = np.reshape(prediction, (n_points, n_points))
-
-        fontsize = 32
-        labelsize = 26
-        fig_pred, ax_pred = plt.subplots(constrained_layout=True)
-        CS_pred = ax_pred.contourf(x, y, u, 100, cmap='jet', origin='lower')
-        cbar = fig_pred.colorbar(CS_pred, shrink=0.67)
-        cbar.ax.tick_params(labelsize = labelsize)
-        ax_pred.locator_params(nbins=8)
-        ax_pred.set_xlabel('$x$' , fontsize = fontsize)
-        ax_pred.set_ylabel('$y$' , fontsize = fontsize)
-        plt.tick_params( labelsize = labelsize)
-        ax_pred.set_aspect(1)
-        #fig.tight_layout()
-        fig_pred.set_size_inches(w=11,h=11)
-
-        if PLOT == 'save':
-            plt.savefig('Predict.png')
-        else:
-            plt.show()
-
-
-
-    def plot_exact(self, PLOT):
-
-        points, sol, n_points = self.generate_test_points()
-
-        x = np.asarray(np.split(points[:,0:1].flatten(), n_points))
-        y = np.asarray(np.split(points[:,1:2].flatten(), n_points))
-        u = np.asarray(np.split(sol.flatten(), n_points))
-
-        fontsize = 32
-        labelsize = 26
-        fig_ext, ax_ext = plt.subplots(constrained_layout=True)
-        CS_ext = ax_ext.contourf(x, y, u, 100, cmap='jet', origin='lower')
-        cbar = fig_ext.colorbar(CS_ext, shrink=0.67)
-        cbar.ax.tick_params(labelsize = labelsize)
-        ax_ext.locator_params(nbins=8)
-        ax_ext.set_xlabel('$x$' , fontsize = fontsize)
-        ax_ext.set_ylabel('$y$' , fontsize = fontsize)
-        plt.tick_params( labelsize = labelsize)
-        ax_ext.set_aspect(1)
-        #fig.tight_layout()
-        fig_ext.set_size_inches(w=11,h=11)
-
-        if PLOT == 'save':
-            plt.savefig('Exact.png')
-        else:
-            plt.show()
-        
-        
-    def plot_pointwise_error(self, PLOT):
-
-        points, sol, n_points = self.generate_test_points()
-
-        x = points[:,0:1].flatten()
-        y = points[:,1:2].flatten()
-
-        prediction = self.eval_NN(np.reshape(x, (len(x), 1)), np.reshape(y, (len(y), 1)))[0]
-        u_pred = np.reshape(prediction, (n_points, n_points))
-
-
-        x = np.asarray(np.split(x, n_points))
-        y = np.asarray(np.split(y, n_points))
-        # u_pred = np.asarray(np.split(prediction, n_points))
-    
-        u_exact = np.asarray(np.split(sol.flatten(), n_points))
-
-        fontsize = 32
-        labelsize = 26
-        fig_err, ax_err = plt.subplots(constrained_layout=True)
-        CS_err = ax_err.contourf(x, y, abs(u_exact - u_pred), 100, cmap='jet', origin='lower')
-        cbar = fig_err.colorbar(CS_err, shrink=0.65, format="%.4f")
-        cbar.ax.tick_params(labelsize = labelsize)
-        ax_err.locator_params(nbins=8)
-        ax_err.set_xlabel('$x$' , fontsize = fontsize)
-        ax_err.set_ylabel('$y$' , fontsize = fontsize)
-        plt.tick_params( labelsize = labelsize)
-        ax_err.set_aspect(1)
-        #fig.tight_layout()
-        fig_err.set_size_inches(w=11,h=11)
-
-        if PLOT == 'save':
-            plt.savefig('Pointwise_Error.png')
-        else:
-            plt.show()
+   
         
