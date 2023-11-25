@@ -1,5 +1,4 @@
 import numpy as np
-from GaussJacobiQuadRule_V3 import Jacobi
 import tensorflow as tf 
 print('settings_lib imported ')
 

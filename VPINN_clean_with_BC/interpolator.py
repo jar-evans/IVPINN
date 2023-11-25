@@ -124,7 +124,7 @@ class interpolator:
         """
         print("degree = ",self.r," , local dof = ",self.n," internal dof = ",self.n_inside,' points inside each edge = ',self.n_inside_edge)
 
-        print(self.nodes)
+        # print(self.nodes)
 
         plt.figure()
         plt.scatter(self.nodes[:, 0], self.nodes[:, 1])

@@ -4,7 +4,7 @@ import triangle as tr
 # from scipy.special import roots_legendre
 # import scipy.integrate
 import quad
-from GaussJacobiQuadRule_V3 import *
+# from GaussJacobiQuadRule_V3 import *
 
 # TODO: implement B
 
