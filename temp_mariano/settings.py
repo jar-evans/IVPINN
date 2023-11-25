@@ -4,6 +4,8 @@ import tensorflow as tf
 print('settings_lib imported ')
 
 
+#cos(pi*(x+0.5))*sin(pi*y)
+
 class PROBDEF:
 
     def __init__(self, omega: tuple, r: int):
@@ -11,11 +13,11 @@ class PROBDEF:
         self.r = r
 
     def u_exact(self, x, y):
-        utemp = tf.cos(2*np.pi*x)*tf.sin(2*np.pi*y)
+        utemp = tf.cos(np.pi*(x+0.5))*tf.sin(np.pi*y)
         return utemp
 
     def f_exact(self, x, y):
-        gtemp =4*np.pi*np.pi*(tf.cos(2*np.pi*x)*tf.sin(2*np.pi*y)+tf.sin(2*np.pi*y)*tf.cos(2*np.pi*x))
+        gtemp =2*np.pi*np.pi*(tf.cos(np.pi*(x+0.5))*tf.sin(np.pi*y))
         return gtemp
 
     def v(self, x, y, r):
