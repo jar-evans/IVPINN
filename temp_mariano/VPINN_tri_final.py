@@ -368,7 +368,7 @@ class VPINN(tf.keras.Model):
         
         with tf.GradientTape() as tape:
             #loss_grad.watch(self.xy_quad_total)
-            tape.watch(self.NN.trainable_variables)
+            #tape.watch(self.NN.trainable_variables)
             loss = self.loss_total()
             #print(loss)
             #loss=(tf.reduce_sum(tf.square(res_vertices))+tf.reduce_sum(tf.square(res_edges)))/self.dof
@@ -376,7 +376,7 @@ class VPINN(tf.keras.Model):
         gradient = tape.gradient(loss, self.NN.trainable_variables)
         return loss, gradient
 
-    @tf.function
+    #@tf.function
     def gradient_descent(self):
         loss, gradient = self.loss_gradient()
         
@@ -402,7 +402,7 @@ class VPINN(tf.keras.Model):
             self.sum_of_vectors_edges.assign(tf.zeros_like(self.sum_of_vectors_edges))             #
 
 
-            loss = self.gradient_descent()
+            loss = self.gradient_descent()  #add other losses 
             if i % 10 == 0:
                 elapsed = time.time() - start_time
                 print(f'Iteration: {i}', f'loss: {loss.numpy():0.10f}', f'time: {elapsed}')
