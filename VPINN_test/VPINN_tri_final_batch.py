@@ -63,7 +63,7 @@ class VPINN():
         print('     n_boundary  : ',self.n_boudary_points)
         print()
 
-    def set_NN(self, NN, LR=0.01):
+    def set_NN(self, NN, LR=0.001):
  
 
         # initialise the NN
@@ -128,7 +128,7 @@ class VPINN():
         u_bound_exact=self.u_bound_exact
         return tf.reduce_mean(tf.square(u_bound_exact - prediction))
 
-    #@tf.function
+    @tf.function
     def custom_loss(self, big_tri):
         #a_vertices = self.a_vertices #
         #a_edges = self.a_edges #

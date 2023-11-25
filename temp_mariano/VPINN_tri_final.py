@@ -360,7 +360,7 @@ class VPINN(tf.keras.Model):
         res=self.custom_loss()
         return  res+loss_b
     
-    @tf.function
+    #@tf.function
     def loss_gradient(self):
 
        # self.a_vertices.assign(tf.zeros((self.n_vertices,self.n_triangles),dtype=tf.float64))
@@ -376,7 +376,7 @@ class VPINN(tf.keras.Model):
         gradient = tape.gradient(loss, self.NN.trainable_variables)
         return loss, gradient
 
-    #@tf.function
+    @tf.function
     def gradient_descent(self):
         loss, gradient = self.loss_gradient()
         
