@@ -102,35 +102,26 @@ class VPINN(tf.keras.Model):
         eval=tf.constant([[x,y]],dtype=tf.float64)
         return self.NN_imposeBC(eval).numpy()[0,0] 
 
-
-
-
-
     def boundary_function(self,x):
         return tf.expand_dims(10*x[:,0]*(1-x[:,0])*x[:,1]*(1-x[:,1]),axis=1)
-
-
 
     def NN_imposeBC(self,x):
         eval=self.NN(x)
         boundary=self.boundary_function(x)
-        return eval*boundary 
+        return eval*tf.cast(boundary, tf.float64) 
     
-
     @tf.function
     def eval_grad_NN_BC(self,x):
-        """input tensor of size (n,2) returns tensor of size (n,2) ->on each row you have first der x and then der y"""
+        """
+        input tensor of size (n,2)
+        returns tensor of size (n,2) -> on each row you have first der x and then der y
+        """
+
         with tf.GradientTape() as tape:
             tape.watch(x)
             res=self.NN_imposeBC(x)
         grad=tape.gradient(res,x)
         return grad
-
-
-
-
-
-
 
     @tf.function
     def boundary_loss(self):
