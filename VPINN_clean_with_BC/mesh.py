@@ -109,3 +109,9 @@ def find_hs(mesh):
         h_max=max(h_max,np.sqrt((vertices[0,0]-vertices[1,0])**2 +(vertices[0,1]-vertices[1,1])**2))
         h_min=min(h_min,np.sqrt((vertices[0,0]-vertices[1,0])**2 +(vertices[0,1]-vertices[1,1])**2))
     return h_max,h_min
+
+def mark_neumann(mesh):
+    mark=mesh['vertex_markers'].copy()
+
+    for v in range(len(mesh['vertex_marker'])):
+        if mesh['vertices']
