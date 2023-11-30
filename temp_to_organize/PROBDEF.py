@@ -20,8 +20,16 @@ class PROBDEF:
     def f_exact(self, x, y):
         gtemp = +4*(1/tf.pow(tf.math.cosh(2*(tf.pow(x,3) - tf.pow(y,4))),2))*(-3*x + 6*tf.pow(y,2) +2*(9*tf.pow(x,4) + 16*tf.pow(y,6))*tf.tanh(2*(tf.pow(x,3) - tf.pow(y,4))))
         return gtemp
-
-
+    
+    def dudx(self, x, y):
+        num = 6*x*x
+        den = tf.pow(tf.math.cosh(2*(tf.pow(x,3) - tf.pow(y,4))), 2)
+        return num/den
+    
+    def dudy(self, x, y):
+        num = -8*tf.pow(y,3)
+        den = tf.pow(tf.math.cosh(2*(tf.pow(x,3) - tf.pow(y,4))), 2)
+        return num/den
 
     def generate_points_on_edge(self,point1, point2, num_points):
         x_vals = np.linspace(point1[0], point2[0], num_points,endpoint=False)
