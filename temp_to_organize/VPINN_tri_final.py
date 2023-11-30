@@ -117,6 +117,9 @@ class VPINN():
         boundary=self.boundary_function(x)
         return eval*boundary +self.bc_model(x)
     
+    def set_NN_BC(self,bc_model):
+        self.bc_model=bc_model
+    
     @tf.function
     def eval_grad_NN_BC(self,x):
         """
