@@ -8,7 +8,7 @@ from quad import *
 
 class VPINN():
 
-    def __init__(self, pb, params, mesh, NN = None):
+    def __init__(self, pb, params, mesh,verbose,NN = None):
 
         super().__init__()
 
@@ -24,6 +24,8 @@ class VPINN():
         self.n_edges=len(mesh['edges'])
 
         self.n_triangles=len(mesh['triangles'])
+
+        self.verbose=verbose 
 
         if self.n_test>=2:
             self.dof=(len(self.mesh['vertex_markers'][self.mesh['vertex_markers']!=1.0]))+(len(self.mesh['edge_markers'][self.mesh['edge_markers']!=1.0]))
@@ -137,6 +139,10 @@ class VPINN():
     
     def set_bc_model(self, bc_model):
         self.bc_model = bc_model
+
+
+    def standard_bc(self,x):
+        return tf.expand_dims((tf.sin(x[:,0])*tf.sin(1-x[:,0])*tf.sin(x[:,1])*tf.sin(1-x[:,1])+1.0)*self.pb.u_exact(x[:,0],x[:,1]),axis=1)
 
     @tf.function
     def custom_loss(self):
@@ -318,11 +324,17 @@ class VPINN():
         self.optimizer.apply_gradients(zip(gradient, self.NN.trainable_variables))
         return loss
 
-    def train(self, iter,LR ,bc_model):
+    def train(self, iter,LR ,bc_model=None):
 
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=LR)
 
-        self.bc_model=bc_model
+
+
+        if bc_model==None:
+            self.bc_model=self.standard_bc
+        else:
+            self.bc_model=bc_model
+
 
         history = []
 
@@ -371,7 +383,7 @@ class VPINN():
 
     def evaluate_test_and_inter_functions(self):
     
-        self.b=interpolator(self.params['N_test'],True,True,points=self.points)
+        self.b=interpolator(self.params['N_test'],self.verbose,True,points=self.points)
         #for ivpinns
         #self.B=interpolator(2,False,False,points=None)
 
