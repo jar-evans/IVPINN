@@ -7,7 +7,7 @@ print()
 
 def generate_mesh(domain, level_of_refinment):
     A = dict(vertices=np.array(domain))
-    B = tr.triangulate(A, "qnea" + str(level_of_refinment))
+    B = tr.triangulate(A, "q30ea" + str(level_of_refinment))
 
     # plotting mesh
     tr.compare(plt, A, B)
@@ -36,6 +36,9 @@ def generate_mesh(domain, level_of_refinment):
     B["h"] = find_h(B)
 
     B["domain"] = domain
+
+    B['segments'] = B['edges']
+    B['segment_markers'] = B['edge_markers']
 
     return B
 
@@ -108,7 +111,9 @@ def refine_mesh(base_mesh, level_of_refinment,verbose):
     input : mesh that you wnat to refine, level of ref that you want (it should be lower the the one of the mesh )"""
     A=dict(vertices=base_mesh['vertices'],vertex_markers=base_mesh['vertex_markers'],triangles=base_mesh['triangles'])
 
-    B = tr.triangulate(A, "qrea" + str(level_of_refinment))
+    B = tr.triangulate(A, "epqa'" + str(level_of_refinment))
+
+    
 
     # plotting mesh
     if verbose:
