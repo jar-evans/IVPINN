@@ -32,30 +32,57 @@ class MeshLib:
         ###       can delete get_triangle_edges
 
         # # edges flipping
-        # for i in range(len(B["edges"])):
-        #     ii = B["edges"][i][0]
-        #     jj = B["edges"][i][1]
+        for i in range(len(B["edges"])):
+             ii = B["edges"][i][0]
+             jj = B["edges"][i][1]
 
-        #     if ii > jj:
-        #         B["edges"][i][0], B["edges"][i][1] = B["edges"][i][1], B["edges"][i][0]
+             if ii > jj:
+                 B["edges"][i][0], B["edges"][i][1] = B["edges"][i][1], B["edges"][i][0]
 
         # # flipping part + edges
-        # l = []
-        # temp = []
-        # for triangle in B["triangles"]:
-        #     keep, t = get_triangle_edges(triangle, B["edges"])
-        #     l.append(keep)
-        #     temp.append(t)
+        l = []
+        temp = []
+        for triangle in B["triangles"]:
+            keep, t = cls.get_triangle_edges(triangle, B["edges"])
+            l.append(keep)
+            temp.append(t)
 
-        # keep = np.asarray(l)
-        # edges_index_inside_triangle = np.asarray(temp)
+        keep = np.asarray(l)
+        edges_index_inside_triangle = np.asarray(temp)
 
-        # B["keep"] = keep
-        # B["edges_index_inside_triangle"] = edges_index_inside_triangle
+        B["keep"] = keep
+        B["edges_index_inside_triangle"] = edges_index_inside_triangle
 
-        ### END NOTE
+    ### END NOTE
 
         return cls(B)
+    
+    @classmethod
+    def get_triangle_edges(cls, triangle_vertices, edges):
+        triangle_edges = []
+
+        keep = np.zeros((3,), dtype=np.int64)
+
+        for i in range(3):
+            ii = triangle_vertices[i].copy()
+            jj = triangle_vertices[(i + 1) % 3].copy()
+
+            if ii > jj:
+                edge = np.array([jj, ii])
+            else:
+                edge = np.array([ii, jj])
+
+            index = np.where(np.all(edges == edge, axis=1))[0][0]
+
+            triangle_edges.append(index)
+
+            if ii > jj:
+                keep[i] = 1
+
+        triangle_edges = np.array(triangle_edges)
+
+        return keep, triangle_edges
+
 
     @classmethod
     def refine_mesh(cls, base_mesh: dict, refinement_level: float, segmentation: bool = False, plot: bool = False):
@@ -88,26 +115,26 @@ class MeshLib:
         #     tr.compare(plt, A, B)
 
         # # edges flipping
-        # for i in range(len(B["edges"])):
-        #     ii = B["edges"][i][0]
-        #     jj = B["edges"][i][1]
+        for i in range(len(B["edges"])):
+            ii = B["edges"][i][0]
+            jj = B["edges"][i][1]
 
-        #     if ii > jj:
-        #         B["edges"][i][0], B["edges"][i][1] = B["edges"][i][1], B["edges"][i][0]
+            if ii > jj:
+                B["edges"][i][0], B["edges"][i][1] = B["edges"][i][1], B["edges"][i][0]
 
-        # # flipping part + edges
-        # l = []
-        # temp = []
-        # for triangle in B["triangles"]:
-        #     keep, t = get_triangle_edges(triangle, B["edges"])
-        #     l.append(keep)
-        #     temp.append(t)
+        # flipping part + edges
+        l = []
+        temp = []
+        for triangle in B["triangles"]:
+            keep, t = cls.get_triangle_edges(triangle, B["edges"])
+            l.append(keep)
+            temp.append(t)
 
-        # keep = np.asarray(l)
-        # edges_index_inside_triangle = np.asarray(temp)
+        keep = np.asarray(l)
+        edges_index_inside_triangle = np.asarray(temp)
 
-        # B["keep"] = keep
-        # B["edges_index_inside_triangle"] = edges_index_inside_triangle
+        B["keep"] = keep
+        B["edges_index_inside_triangle"] = edges_index_inside_triangle
 
 
         return cls(B)
