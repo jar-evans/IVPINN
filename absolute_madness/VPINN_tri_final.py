@@ -351,10 +351,15 @@ class VPINN():
         n_big_triangles=self.n_big_triangles
 
 
+
         # create global evaluations
         x_to_eval_global = tf.reshape(self.x_to_eval_global, (-1,2))
         eval_global = self.NN_imposeBC(x_to_eval_global)
         eval_global = tf.reshape(eval_global, (n_big_triangles, -1, 1))
+
+
+
+
 
         # finding quadrature for all smaill tirangles        
         xy_quad_total =self.xy_quad_total.numpy()
@@ -362,6 +367,7 @@ class VPINN():
 
         # take degree
         r=self.n_test
+
 
         # init rhs and dof vector
         F_total_vertices=self.F_total_vertices
@@ -374,12 +380,15 @@ class VPINN():
         # taking gradient of test functions
         grad_test=self.grad_test 
 
+
+
+
         # for each big triangle
         for big_traingle in range(n_big_triangles):
 
             # get the vertices
             vertices_big=self.coarse_mesh['vertices'][self.coarse_mesh['triangles'][big_traingle]]
-
+            #print('vertices_big',vertices_big)
             # find the change of coord matrices for THIS big triangle
             B_i, c_i, det_i, B_D_i, B_DD_i, B_inv_i=self.B.change_of_coordinates(vertices_big)
 
@@ -387,12 +396,16 @@ class VPINN():
 
             # ectracting big triangle evaluations of the network
             eval = eval_global[big_traingle]
+            #print('eval',eval)
 
             # x_to_eval=tf.transpose(x_to_eval)
             # eval=self.NN_imposeBC(x_to_eval)
 
             # finding all the small triangles in THIS big triangle
             little_triangles=self.btol[big_traingle]
+            #print('little_triangles',little_triangles)
+
+
 
             # and then for all the little triangles
             for index,triangle in enumerate(self.mesh['triangles'][little_triangles]):
@@ -404,10 +417,11 @@ class VPINN():
                 # transforming gradient of test functions from ref. to our little triangle
                 grad_test_elem=B_D @ grad_test
 
+
+
                 # x = b*x_ref + c
                 x_ref = B_inv_i @ (np.transpose(xy_quad_total[little_triangles[index]]) - c_i)
 
-                # print(x_ref)
                 # return
 
                 x_ref = np.transpose(x_ref)
@@ -428,8 +442,15 @@ class VPINN():
                 grad_elem=tf.concat([grad_elem_x,grad_elem_y],axis=1)
                 grad_elem=tf.transpose(grad_elem)
 
+                #print('grad_elem',grad_elem)
+                
+
                 # transform the gradient on the reference to the big triangle
-                grad_elem = B_D_i @ grad_elem          
+                grad_elem = B_D_i @ grad_elem     
+
+                #print('grad_elem tra ',grad_elem)
+                              
+
 
                 # then we take the integral        
                 v0= J*tf.reduce_sum(w_quad*grad_test_elem[0]*grad_elem)
@@ -462,16 +483,16 @@ class VPINN():
                     l1=J*tf.reduce_sum(w_quad*grad_test_elem[4]*grad_elem)
                     l2=J*tf.reduce_sum(w_quad*grad_test_elem[5]*grad_elem)
 
-                    if(self.mesh['edge_markers'][self.mesh['edges_index_inside_triangle'][index][0]]==1):
+                    if(self.mesh['edge_markers'][self.mesh['edges_index_inside_triangle'][little_triangles[index]][0]]==1):
                         l0=l0*0.0
 
-                    if(self.mesh['edge_markers'][self.mesh['edges_index_inside_triangle'][index][1]]==1):
+                    if(self.mesh['edge_markers'][self.mesh['edges_index_inside_triangle'][little_triangles[index]][1]]==1):
                         l1=l1*0.0
 
-                    if(self.mesh['edge_markers'][self.mesh['edges_index_inside_triangle'][index][2]]==1):
+                    if(self.mesh['edge_markers'][self.mesh['edges_index_inside_triangle'][little_triangles[index]][2]]==1):
                         l2=l2*0.0
                     
-                    indices_edges = tf.constant([[self.mesh['edges_index_inside_triangle'][index][0]], [self.mesh['edges_index_inside_triangle'][index][1]], [self.mesh['edges_index_inside_triangle'][index][2]]])
+                    indices_edges = tf.constant([[self.mesh['edges_index_inside_triangle'][little_triangles[index]][0]], [self.mesh['edges_index_inside_triangle'][little_triangles[index]][1]], [self.mesh['edges_index_inside_triangle'][little_triangles[index]][2]]])
                     updates_edges=[l0,l1,l2]
 
                     scatter_edges = tf.scatter_nd(indices_edges, updates_edges, [self.n_edges])
@@ -480,9 +501,9 @@ class VPINN():
 
 
             #tf.reduce_sum(a_vertices,axis=1,keepdims=True)-F_total_vertices,tf.reduce_sum(a_edges,axis=1,keepdims=True)-F_total_edges
-            if r > 1:
+        if r > 1:
                 return (tf.reduce_sum(tf.square(sum_of_vectors_vertices-F_total_vertices))+tf.reduce_sum(tf.square(sum_of_vectors_edges-F_total_edges)))/self.dof
-            else:
+        else:
                 return (tf.reduce_sum(tf.square(sum_of_vectors_vertices-F_total_vertices)))/self.dof
 
     def helper(self):
@@ -504,10 +525,7 @@ class VPINN():
 
             x_to_eval_global.append(x_to_eval)
 
-            plt.scatter(x_to_eval[:,0], x_to_eval[:,1])
-            plt.triplot(vertices_big[:,0], vertices_big[:,1])
-            plt.show()
-            return
+        
 
         self.x_to_eval_global = tf.constant(x_to_eval_global, dtype=tf_type)
 
