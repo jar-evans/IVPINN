@@ -1,0 +1,36 @@
+
+XõS
+	/host:CPUõÈ×şí
+python3È×şí(õ²–Ô
+ 
+tf_Compute/-1434085003õ²–Ô
+"!õÈ×şítf.constantHˆ¿ÉPñòa"IõÈ×şíEagerExecuteHˆşşğPà”¬1Z
+is_func0Z
+eager_op_EagerConst"4õÈ×şíEagerLocalExecute: _EagerConstH¨°ÃôPØù³-"'õÈ×şíEagerCopyToDeviceHĞ¤íıPøüç"2õÈ×şíValidateInputTypeAndPlacementHĞÌ’‰P¸×>"(õÈ×şíEagerKernelExecuteHè¼åŠPè‰ä".õÈ×şíKernelAndDeviceFunc::RunHØˆıP¸×ˆ"+õÈ×şíTFE_DeleteTensorHandleHˆå‘¥P¨èH",õÈ×şíTFE_DeleteTensorHandleHúö¯Pˆ—¬"!õÈ×şítf.constantHøŞªèPØ°,"IõÈ×şíEagerExecuteHØü§şPÈ·€Z
+is_func0Z
+eager_op_EagerConst"4õÈ×şíEagerLocalExecute: _EagerConstH¨ŞİÿP¸Çº"'õÈ×şíEagerCopyToDeviceH€¤ÍƒP€Ù‰"2õÈ×şíValidateInputTypeAndPlacementH¨…¹‡Pè§"(õÈ×şíEagerKernelExecuteH˜µŒˆP§ò".õÈ×şíKernelAndDeviceFunc::RunHØ¡Î‰PÀÁê"+õÈ×şíTFE_DeleteTensorHandleH ç”’P¸´ "+õÈ×şíTFE_DeleteTensorHandleH ßŞ–P°ƒM"YõÈ×şímy_functionH Â“ÎP¸Ù†gZ
+tracing_count1Z!
+tf_function_calltraced-nonXla"1õÈ×şítf.function-graph_buildingHè÷Œ¦PØÁèèS"'õÈ×şíconvert_to_tensorHØŸùıPP€ãĞ"'õÈ×şíconvert_to_tensorH ­ï˜QP°¤¹"'õÈ×şíconvert_to_tensorHø®·óRP˜Úƒ"(õÈ×şíconvert_to_tensorHĞ…†SPĞœ´†"'õÈ×şíconvert_to_tensorHÀåœUPĞ±Â"'õÈ×şíconvert_to_tensorHèñ“ØUP°§¾"/õÈ×şíTFE_Py_ExecuteCancelableHøëª¡ZP¸Œõ"ZõÈ×şíEagerExecuteHè±®ZP˜ÂÏåZ'
+eager_op__inference_my_function_109Z
+is_func1"EõÈ×şí.EagerLocalExecute: __inference_my_function_109H¸õâ°ZP€‘ëâ"'õÈ×şíEagerCopyToDeviceHÈÀá±ZP •§"3õÈ×şíValidateInputTypeAndPlacementH¸¤ÜiPØ©«")õÈ×şíEagerKernelExecuteHĞÏÂ‘iPğ€­".õÈ×şíKernelAndDeviceFunc::RunHÈ€ó“iP˜h"=õÈ×şíFunctionRunHĞİÓiP˜°‘Z
+id-1987590466107366239",õÈ×şíTFE_DeleteTensorHandleH€™£ğjP˜ÈŒ"!õÈ×şítf.constantHè¤¤ˆlPÈÚ"+õÈ×şíTFE_DeleteTensorHandleH˜•î™lPÈÕ/".õÈ×şíTFE_Py_FastPathExecute_CH •˜ºlP¨ïô6"+õÈ×şíTFE_DeleteTensorHandleH€ò•ÉlPøÆ"+õÈ×şíTFE_DeleteTensorHandleHØ‚öÉlP¸ˆ"HõÈ×şíEagerExecuteHØæŸÍlPĞ¹‰"Z
+is_func0Z
+eager_op
+LogicalAnd"3õÈ×şíEagerLocalExecute: LogicalAndHØ¸ÒÏlP˜‰Ä"'õÈ×şíEagerCopyToDeviceH È³ÕlPÈòÉ"2õÈ×şíValidateInputTypeAndPlacementH€³ñÛlPè­"(õÈ×şíEagerKernelExecuteHø”ëÜlPèĞ…".õÈ×şíKernelAndDeviceFunc::RunHà÷ŞlP°‡ò"'õÈ×şíconvert_to_tensorHğØ±›mPÀ‹ü".õÈ×şíTFE_Py_FastPathExecute_CH¸Ó¥mP¨†Ù!"FõÈ×şíEagerExecuteH˜¿±mPøÛ¿Z
+is_func0Z
+eager_opIdentity"1õÈ×şíEagerLocalExecute: IdentityH˜Â‹²mP˜Ï§"'õÈ×şíEagerCopyToDeviceHÈ—ˆ¶mP ®ò"2õÈ×şíValidateInputTypeAndPlacementHğ¿€¼mP˜¹"(õÈ×şíEagerKernelExecuteH¨äÏ¼mP°ÄÉ".õÈ×şíKernelAndDeviceFunc::RunHªâ½mPÀ£ô".õÈ×şíTFE_Py_FastPathExecute_CH°÷üËmPÀ£ı"'õÈ×şíconvert_to_tensorH°ÕìâmPĞÚÃ"'õÈ×şíconvert_to_tensorHĞêòïmPà½±"!õÈ×şítf.constantHØ¸ÔõmPÈŸ¯"'õÈ×şíconvert_to_tensorH €¾€nP˜Ü…"!õÈ×şítf.constantH¨³±ƒnPÈş°	"+õÈ×şíTFE_DeleteTensorHandleH˜ö¼‹nP¨°1"'õÈ×şíconvert_to_tensorHÈ€ÏnP°Ïé
+"!õÈ×şítf.constantHğ’”nPØë‰"+õÈ×şíTFE_DeleteTensorHandleHˆà¬˜nP€»".õÈ×şíTFE_Py_ExecuteCancelableHà–˜ŸnP¨İ°%"JõÈ×şíEagerExecuteHÀøØ¥nPøŞ Z
+eager_opWriteSummaryZ
+is_func0"5õÈ×şíEagerLocalExecute: WriteSummaryHÀÒ¸¦nPø½®"'õÈ×şíEagerCopyToDeviceH¨±“©nP¸‰Ï"2õÈ×şíValidateInputTypeAndPlacementHø¼¬¯nP°šo"(õÈ×şíEagerKernelExecuteH°ôÈ°nPø´Ò".õÈ×şíKernelAndDeviceFunc::RunHÈä±nP şÔ"+õÈ×şíTFE_DeleteTensorHandleH¸¼üÅnP ©P"+õÈ×şíTFE_DeleteTensorHandleHØ«‰ÇnP€Ù"+õÈ×şíTFE_DeleteTensorHandleHˆ§¯ÇnPøÉ"!õÈ×şítf.constantHˆ°‘ĞnPèî¢"+õÈ×şíTFE_DeleteTensorHandleH€€öÙnPĞµ"+õÈ×şíTFE_DeleteTensorHandleH¨İ•ÛnP°—p"+õÈ×şíTFE_DeleteTensorHandleH˜©ènPˆ…5"+õÈ×şíTFE_DeleteTensorHandleHˆØŒénP˜æ"Wõõ²–Ô
+ExecutorState::ProcessH óØiPÀí‹Z
+id-1987590466107366239Z
+iter_num0"Wõõ²–Ô
+ExecutorState::ProcessHğ”öİiP¨ªñZ
+iter_num0Z
+id-1987590466107366239"/õõ²–Ô
+PowHèîÈŞiPø«ŞZ
+	long_namePow:Pow"2õõ²–Ô
+ProdH€­ÕîiP˜ùÉZ
+	long_name	Prod:Prod"Fõõ²–Ô
+ExecutorDoneCallbackHØŒôiP€¿ßZ
+id-1987590466107366239
