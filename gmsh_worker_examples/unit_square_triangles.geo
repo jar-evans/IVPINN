@@ -1,4 +1,4 @@
-lc = 0.3;
+lc = 1;
 // Define the geometry
 Point(1) = {0, 0, 0, lc};
 Point(2) = {1, 0, 0, lc};
@@ -30,3 +30,9 @@ RefineMesh;
 Save "2_refined.msh";
 RefineMesh;
 Save "3_refined.msh";
+RefineMesh;
+Save "4_refined.msh";
+RefineMesh;
+Save "5_refined.msh";
+RefineMesh;
+Save "6_refined.msh";

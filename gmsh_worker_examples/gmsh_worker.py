@@ -8,14 +8,19 @@ class gmsh_worker:
     def __init__(self, geo_file: str):
         self.geo_file = geo_file
 
-    def generate_parallel_chain(self, verbose: bool = False):
-        self.run_geo()
+    def generate_parallel_chain(self, verbose: bool = False, delete: bool = True, write: bool = True):
+
+        if write:
+            self.run_geo()
+
         self.read_refinement_chain()
         self.decrypt_chain()
         if verbose:
             self.plot_chain()
         self.convert_to_Triangle()
-        self.remove_all_msh()
+
+        if delete:
+            self.remove_all_msh()
 
     def read_msh(msh):
         """
