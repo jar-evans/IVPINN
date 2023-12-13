@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 from my_types import *
 import sys
 
+from scipy.special import roots_legendre
+
 # TERMINOLOGY:
 # - nodes: always the fixed points upon which values are set
 # - points: variable coordinates typically used to interpolate on
@@ -50,12 +52,12 @@ class interpolator:
 
         self.nodes,self.Nodes,self.n,self.temp = self.generate_interp_nodes(r)
         
-
+        self.generate_gaussian_quadrature(5)
 
         #matrices that rapresent the polynomials
         self.M ,self.M_dx,self.M_dy,self.M_d2x,self.M_d2y= self.generate_matrices(verbose)
 
-        #self.change_order()
+        self.change_order()
 
         if verbose:
             self.plot_nodes()
@@ -474,3 +476,21 @@ class interpolator:
 
 
         return B,c,det,B_D,B_DD
+
+
+
+
+    def generate_gaussian_quadrature(self,N):
+        n=(N+1)//2
+        nodes, weights = roots_legendre(n)
+
+
+        nodes=nodes*0.5+0.5
+        weights=weights*0.5
+
+        self.neumann_nodes=np.reshape(nodes,(-1,1))
+        self.neumannn_weights=np.reshape(weights,(-1,1))
+
+    def transform(self,nodes,a,b):
+        "the transformation preserve the shape"
+        return nodes*(b-a) +(a),(b-a)

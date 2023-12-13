@@ -29,16 +29,14 @@ class VPINN(tf.keras.Model):
         self.n_edges=len(mesh['edges'])
 
         self.n_triangles=len(mesh['triangles'])
-        self.dof=(len(self.mesh['vertex_markers'][self.mesh['vertex_markers']!=1.0]))+(len(self.mesh['edge_markers'][self.mesh['edge_markers']!=1.0]))
+        if self.n_test>=2:
+            self.dof=(len(self.mesh['vertex_markers'][self.mesh['vertex_markers']!=1.0]))+(len(self.mesh['edge_markers'][self.mesh['edge_markers']!=1.0]))
+        else:
+            self.dof=(len(self.mesh['vertex_markers'][self.mesh['vertex_markers']!=1.0]))
 
 
 
 
-        self.n_el_x, self.n_el_y = self.params['n_elements']
-
-        # generate all points/coordinates to be used in the process
-        self.generate_boundary_points()
-        # self.generate_inner_points()
         self.pre_compute()
 
         # add the neural network to the class if given at initialisation
@@ -142,7 +140,18 @@ class VPINN(tf.keras.Model):
         grad=tape.gradient(res,x)
         return grad
     
+    def eval_grad_NN_BC__(self,x):
+        """
+        input tensor of size (n,2)
+        returns tensor of size (n,2) -> on each row you have first der x and then der y
+        """
 
+        with tf.GradientTape() as tape:
+            tape.watch(x)
+            res=self.NN_imposeBC(x)
+            
+        grad=tape.gradient(res,x)
+        return grad.numpy()
 
 
 
@@ -166,7 +175,9 @@ class VPINN(tf.keras.Model):
         grad_=tf.reshape(grad,(n_triangles,-1,2))
 
         F_total_vertices=self.F_total_vertices
-        F_total_edges=self.F_total_edges
+        
+        if self.n_test>=2:
+            F_total_edges=self.F_total_edges
 
    
 
@@ -175,7 +186,8 @@ class VPINN(tf.keras.Model):
         #sum_of_vectors_vertices = tf.Variable(tf.zeros((self.n_vertices,1),dtype=tf.float64))
         #sum_of_vectors_edges = tf.Variable(tf.zeros((self.n_edges,1),dtype=tf.float64))
         sum_of_vectors_vertices=self.sum_of_vectors_vertices
-        sum_of_vectors_edges=self.sum_of_vectors_edges
+        if self.n_test>=2:
+            sum_of_vectors_edges=self.sum_of_vectors_edges
 
 
 
@@ -195,9 +207,10 @@ class VPINN(tf.keras.Model):
             v1= J*tf.reduce_sum(w_quad*grad_test_elem[1]*grad_elem)
             v2= J*tf.reduce_sum(w_quad*grad_test_elem[2]*grad_elem)
 
-            l0=J*tf.reduce_sum(w_quad*grad_test_elem[3]*grad_elem)
-            l1=J*tf.reduce_sum(w_quad*grad_test_elem[4]*grad_elem)
-            l2=J*tf.reduce_sum(w_quad*grad_test_elem[5]*grad_elem)
+            if self.n_test>=2:
+                l0=J*tf.reduce_sum(w_quad*grad_test_elem[3]*grad_elem)
+                l1=J*tf.reduce_sum(w_quad*grad_test_elem[4]*grad_elem)
+                l2=J*tf.reduce_sum(w_quad*grad_test_elem[5]*grad_elem)
 
             if (self.mesh['vertex_markers'][triangle[0]]==1):
                 v0=v0*0.0
@@ -215,15 +228,15 @@ class VPINN(tf.keras.Model):
 
 
 
+            if self.n_test>=2:
+                if(self.mesh['edge_markers'][self.mesh['edges_index_inside_triangle'][index][0]]==1):
+                    l0=l0*0.0
 
-            if(self.mesh['edge_markers'][self.mesh['edges_index_inside_triangle'][index][0]]==1):
-                l0=l0*0.0
+                if(self.mesh['edge_markers'][self.mesh['edges_index_inside_triangle'][index][1]]==1):
+                    l1=l1*0.0
 
-            if(self.mesh['edge_markers'][self.mesh['edges_index_inside_triangle'][index][1]]==1):
-                l1=l1*0.0
-
-            if(self.mesh['edge_markers'][self.mesh['edges_index_inside_triangle'][index][2]]==1):
-                l2=l2*0.0
+                if(self.mesh['edge_markers'][self.mesh['edges_index_inside_triangle'][index][2]]==1):
+                    l2=l2*0.0
             
 
 
@@ -233,11 +246,13 @@ class VPINN(tf.keras.Model):
 
 
             indices_vertices = tf.constant([[triangle[0]], [triangle[1]], [triangle[2]]])
-            indices_edges = tf.constant([[self.mesh['edges_index_inside_triangle'][index][0]], [self.mesh['edges_index_inside_triangle'][index][1]], [self.mesh['edges_index_inside_triangle'][index][2]]])
+            if self.n_test>=2:
+                indices_edges = tf.constant([[self.mesh['edges_index_inside_triangle'][index][0]], [self.mesh['edges_index_inside_triangle'][index][1]], [self.mesh['edges_index_inside_triangle'][index][2]]])
 
             
             updates_vertices = [v0, v1, v2]
-            updates_edges=[l0,l1,l2]
+            if self.n_test>=2:
+                updates_edges=[l0,l1,l2]
 
             #sparse_tensor = tf.sparse.SparseTensor(indices=indices, values=values, dense_shape=dense_shape)
 
@@ -249,12 +264,15 @@ class VPINN(tf.keras.Model):
             scatter_vertices = tf.scatter_nd(indices_vertices, updates_vertices, [self.n_vertices])
             scatter_vertices_=tf.expand_dims(scatter_vertices,axis=1)
 
-            scatter_edges = tf.scatter_nd(indices_edges, updates_edges, [self.n_edges])
-            scatter_edges_=tf.expand_dims(scatter_edges,axis=1)
+            if self.n_test>=2:
+                scatter_edges = tf.scatter_nd(indices_edges, updates_edges, [self.n_edges])
+                scatter_edges_=tf.expand_dims(scatter_edges,axis=1)
             
         
             sum_of_vectors_vertices = tf.reduce_sum([sum_of_vectors_vertices, scatter_vertices_], axis=0)
-            sum_of_vectors_edges = tf.reduce_sum([sum_of_vectors_edges, scatter_edges_], axis=0)
+
+            if self.n_test>=2:
+                sum_of_vectors_edges = tf.reduce_sum([sum_of_vectors_edges, scatter_edges_], axis=0)
 
             #a_vertices[triangle[0]]+=a_element[0]
 
@@ -265,8 +283,10 @@ class VPINN(tf.keras.Model):
 
 
         #tf.reduce_sum(a_vertices,axis=1,keepdims=True)-F_total_vertices,tf.reduce_sum(a_edges,axis=1,keepdims=True)-F_total_edges
-        return (tf.reduce_sum(tf.square(sum_of_vectors_vertices-F_total_vertices))+tf.reduce_sum(tf.square(sum_of_vectors_edges-F_total_edges)))/self.dof
-
+        if self.n_test>=2:
+            return (tf.reduce_sum(tf.square(sum_of_vectors_vertices-F_total_vertices))+tf.reduce_sum(tf.square(sum_of_vectors_edges-F_total_edges)))/self.dof
+        else:
+            return tf.reduce_sum(tf.square(sum_of_vectors_vertices-F_total_vertices))/self.dof
 
 
     @tf.function
@@ -312,13 +332,15 @@ class VPINN(tf.keras.Model):
         history = []
 
 
-        self.sum_of_vectors_vertices = tf.Variable(tf.zeros((self.n_vertices,1),dtype=tf.float64)) #
-        self.sum_of_vectors_edges = tf.Variable(tf.zeros((self.n_edges,1),dtype=tf.float64))       #
+        self.sum_of_vectors_vertices = tf.Variable(tf.zeros((self.n_vertices,1),dtype=tf.float64))
+        if self.n_test>=2: #
+            self.sum_of_vectors_edges = tf.Variable(tf.zeros((self.n_edges,1),dtype=tf.float64))       #
 
         start_time = time.time()
         for i in range(iter+1):
-            self.sum_of_vectors_vertices.assign(tf.zeros_like(self.sum_of_vectors_vertices))       #
-            self.sum_of_vectors_edges.assign(tf.zeros_like(self.sum_of_vectors_edges))             #
+            self.sum_of_vectors_vertices.assign(tf.zeros_like(self.sum_of_vectors_vertices))
+            if self.n_test>=2:       #
+                self.sum_of_vectors_edges.assign(tf.zeros_like(self.sum_of_vectors_edges))             #
 
 
             loss = self.gradient_descent()  #add other losses 
@@ -428,7 +450,7 @@ class VPINN(tf.keras.Model):
         self.w_quad
         """
         self.xy_quad =np.array(points,dtype=np.float64)
-        self.w_quad = np.array(weights,dtype=np.float64)
+        self.w_quad = np.array(weights,dtype=np.float64)/2.0
         self.x_quad = np.reshape(self.xy_quad[:,0], (len(self.xy_quad), 1))
         self.y_quad = np.reshape(self.xy_quad[:,1], (len(self.xy_quad), 1))
 
@@ -468,12 +490,24 @@ class VPINN(tf.keras.Model):
         J_total = []
         F_total=[]
         
+        neumann_points_ref=self.b.neumann_nodes
+        neumann_weights=self.b.neumannn_weights
+
+
+
+        points_edge1_ref=np.hstack([neumann_points_ref,np.zeros_like(neumann_points_ref)],dtype=np_type)
+        points_edge2_ref=np.hstack([1.0-neumann_points_ref,neumann_points_ref],dtype=np_type)
+        points_edge3_ref=np.hstack([np.zeros_like(neumann_points_ref),neumann_points_ref[::-1]],dtype=np_type)
+ 
 
         for index,triangle in enumerate(self.mesh['triangles']):
             F_element=[]
             x_element=[]
             J_element=[]
             x_quad=self.points
+
+            vertices=self.mesh['vertices'][triangle] #3x2 
+
 
             # get quadrature points in arb. element and get jacobian
             B,c,J,B_D,B_DD=self.b.change_of_coordinates(self.mesh['vertices'][triangle])
@@ -494,34 +528,124 @@ class VPINN(tf.keras.Model):
 
             
 
-            F_element=np.array(F_element,dtype=np.float64)
-            J_element=np.array(J_element,dtype=np.float64)
-
-            if (self.mesh['vertex_markers'][triangle[0]]!=1):
-                    F_total_vertices[triangle[0]]+=F_element[0]
+            F_element=np.array(F_element,dtype=np_type)
+            J_element=np.array(J_element,dtype=np_type)
 
 
-            if (self.mesh['vertex_markers'][triangle[1]]!=1):
-                    F_total_vertices[triangle[1]]+=F_element[1]
+            # if (self.mesh['vertex_markers'][triangle[0]]!=1):
+            #         F_total_vertices[triangle[0]]+=F_element[0]
+
+
+            # if (self.mesh['vertex_markers'][triangle[1]]!=1):
+            #         F_total_vertices[triangle[1]]+=F_element[1]
  
 
-            if (self.mesh['vertex_markers'][triangle[2]]!=1):
-                    F_total_vertices[triangle[2]]+=F_element[2]
+            # if (self.mesh['vertex_markers'][triangle[2]]!=1):
+            #         F_total_vertices[triangle[2]]+=F_element[2]
 
 
-     
+
+            #neumann 
+            if (self.mesh['vertex_markers'][triangle[0]]==2 and self.mesh['edge_markers'][self.mesh['edges_index_inside_triangle'][index][0]]==2):
+                    
+                    select=np.zeros((self.b.n,1),dtype=np_type)
+                    select[0]=1.0
+                    det=np.sqrt(np.square(vertices[0,0]-vertices[1,0]) +np.square(vertices[0,1]-vertices[1,1]))
+                    points_edge1=(B@points_edge1_ref.T +c).T
+
+                    res=self.pb.neumann(points_edge1[:,0],points_edge1[:,1])
+                    res=np.reshape(res,(-1,1))
+                    test=self.b.interpolate(points_edge1_ref,select)
+
+                    F_total_vertices[triangle[0]]+=det*np.sum(neumann_weights*res*test)
+    
+
+            if (self.mesh['vertex_markers'][triangle[1]]==2 and self.mesh['edge_markers'][self.mesh['edges_index_inside_triangle'][index][1]]==2):
+
+                    select=np.zeros((self.b.n,1),dtype=np_type)
+                    select[1]=1.0
+                    det= np.sqrt(np.square(vertices[1,0]-vertices[2,0]) +np.square(vertices[1,1]-vertices[2,1]))
+                    points_edge2=(B@points_edge1_ref.T +c).T
+
+                    res=self.pb.neumann(points_edge2[:,0],points_edge2[:,1])
+                    res=np.reshape(res,(-1,1))
+                    test=self.b.interpolate(points_edge2_ref,select)
+                    
+
+                    F_total_vertices[triangle[1]]+=det*np.sum(neumann_weights*res*test)
+
+        
+
+            if (self.mesh['vertex_markers'][triangle[2]]==2 and self.mesh['edge_markers'][self.mesh['edges_index_inside_triangle'][index][2]]==2):
+                
+
+                    select=np.zeros((self.b.n,1),dtype=np_type)
+                    select[2]=1.0
+                    det= np.sqrt(np.square(vertices[0,0]-vertices[2,0]) +np.square(vertices[0,1]-vertices[2,1]))
+                    points_edge3=(B@points_edge1_ref.T +c).T
+
+                    res=self.pb.neumann(points_edge3[:,0],points_edge3[:,1])
+                    res=np.reshape(res,(-1,1))
+                    test=self.b.interpolate(points_edge3_ref,select)
+                    
+
+                    F_total_vertices[triangle[2]]+=det*np.sum(neumann_weights*res*test)
+                
+
 
 
             if(r>=2):
-                    if(self.mesh['edge_markers'][self.mesh['edges_index_inside_triangle'][index][0]]!=1):
-                        F_total_edges[self.mesh['edges_index_inside_triangle'][index][0]]+=F_element[3]
+                    # if(self.mesh['edge_markers'][self.mesh['edges_index_inside_triangle'][index][0]]!=1):
+                    #     F_total_edges[self.mesh['edges_index_inside_triangle'][index][0]]+=F_element[3]
 
-                    if(self.mesh['edge_markers'][self.mesh['edges_index_inside_triangle'][index][1]]!=1):
-                            F_total_edges[self.mesh['edges_index_inside_triangle'][index][1]]+=F_element[4]
+                    # if(self.mesh['edge_markers'][self.mesh['edges_index_inside_triangle'][index][1]]!=1):
+                    #         F_total_edges[self.mesh['edges_index_inside_triangle'][index][1]]+=F_element[4]
 
-                    if(self.mesh['edge_markers'][self.mesh['edges_index_inside_triangle'][index][2]]!=1):
-                        F_total_edges[self.mesh['edges_index_inside_triangle'][index][2]]+=F_element[5]  
+                    # if(self.mesh['edge_markers'][self.mesh['edges_index_inside_triangle'][index][2]]!=1):
+                    #     F_total_edges[self.mesh['edges_index_inside_triangle'][index][2]]+=F_element[5]  
 
+
+                if (self.mesh['edge_markers'][self.mesh['edges_index_inside_triangle'][index][0]]==2):
+                        select=np.zeros((self.b.n,1),dtype=np_type)
+                        select[3]=1.0
+                        det=np.sqrt(np.square(vertices[0,0]-vertices[1,0]) +np.square(vertices[0,1]-vertices[1,1]))
+                        points_edge1=(B@points_edge1_ref.T +c).T
+
+                        res=self.pb.neumann(points_edge1[:,0],points_edge1[:,1])
+                        res=np.reshape(res,(-1,1))
+                        test=self.b.interpolate(points_edge1_ref,select)
+                        print('writing1 --> ',self.mesh['vertex_markers'][triangle[2]],triangle)
+                        F_total_edges[self.mesh['edges_index_inside_triangle'][index][0]]+=det*np.sum(neumann_weights*res*test)
+                        print(test,det,res)
+
+
+                if (self.mesh['edge_markers'][self.mesh['edges_index_inside_triangle'][index][1]]==2):
+                        print('writing2 --> ',self.mesh['vertex_markers'][triangle[2]],triangle)
+
+                        select=np.zeros((self.b.n,1),dtype=np_type)
+                        select[4]=1.0
+                        det= np.sqrt(np.square(vertices[1,0]-vertices[2,0]) +np.square(vertices[1,1]-vertices[2,1]))
+                        points_edge2=(B@points_edge1_ref.T +c).T
+
+                        res=self.pb.neumann(points_edge2[:,0],points_edge2[:,1])
+                        res=np.reshape(res,(-1,1))
+                        test=self.b.interpolate(points_edge2_ref,select)
+                        
+                        F_total_edges[self.mesh['edges_index_inside_triangle'][index][1]]+=det*np.sum(neumann_weights*res*test)
+                        print(test,det,res)
+
+                if (self.mesh['edge_markers'][self.mesh['edges_index_inside_triangle'][index][2]]==2):
+                        print('writing3 --> ',self.mesh['vertex_markers'][triangle[2]],triangle)
+                        select=np.zeros((self.b.n,1),dtype=np_type)
+                        select[5]=1.0
+                        det= np.sqrt(np.square(vertices[0,0]-vertices[2,0]) +np.square(vertices[0,1]-vertices[2,1]))
+                        points_edge3=(B@points_edge1_ref.T +c).T
+
+                        res=self.pb.neumann(points_edge3[:,0],points_edge3[:,1])
+                        res=np.reshape(res,(-1,1))
+                        test=self.b.interpolate(points_edge3_ref,select)
+                        print(test,det,res)
+                        F_total_edges[self.mesh['edges_index_inside_triangle'][index][2]]+=det*np.sum(neumann_weights*res*test)
             #print(F_total_edges)
 
             xy_quad_total.append(xy_quad_element)
@@ -542,6 +666,10 @@ class VPINN(tf.keras.Model):
         #print(self.F_total_vertices)
         #print(self.xy_quad_total)
         #print(tf.shape(self.xy_quad_total))
+
+
+        #add another loop for the neumann 
+        #add also the neumann condition in the pb
 
 
     def summary(self):
@@ -580,5 +708,3 @@ class VPINN(tf.keras.Model):
             plt.show()
         
 
-   
-        

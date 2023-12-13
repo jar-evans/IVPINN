@@ -10,7 +10,9 @@ class PROBDEF:
 
     def u_exact(self, x, y):
         
-        utemp = tf.cos(np.pi*x)*tf.exp(-y)
+        utemp = np.cos(np.pi*x)*np.exp(-y)
+
+        
         return utemp
 
     def f_exact(self, x, y):
@@ -33,4 +35,10 @@ class PROBDEF:
         return gtemp
 
 
+    def neumann(self, x, y):
+        """
+        input x,y write just one function 
+        """
+        return x**2
 
+        
