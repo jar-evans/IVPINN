@@ -52,7 +52,7 @@ class interpolator:
 
         self.nodes,self.Nodes,self.n,self.temp = self.generate_interp_nodes(r)
         
-        self.generate_gaussian_quadrature(5)
+        self.generate_gaussian_quadrature(4)
 
         #matrices that rapresent the polynomials
         self.M ,self.M_dx,self.M_dy,self.M_d2x,self.M_d2y= self.generate_matrices(verbose)

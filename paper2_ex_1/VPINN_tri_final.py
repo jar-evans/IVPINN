@@ -340,13 +340,6 @@ class VPINN():
 
 
 
-
-
-
-
-
-
-
     def custom_loss_IVPINN(self):
 
         n_big_triangles=self.n_big_triangles
@@ -721,55 +714,163 @@ class VPINN():
             if (self.mesh['vertex_markers'][triangle[2]]!=1):
                     F_total_vertices[triangle[2]]+=F_element[2]
 
-
-
-            #neumann 
-            if (self.mesh['vertex_markers'][triangle[0]]==2 and self.mesh['edge_markers'][self.mesh['edges_index_inside_triangle'][index][0]]==2):
+            print(f"Triangle #{index}")
+            if (self.mesh['edge_markers'][self.mesh['edges_index_inside_triangle'][index][0]]==2):
+            
+                if (self.mesh['vertex_markers'][triangle[0]]==2):
                     
-                select=np.zeros((self.b.n,1),dtype=np_type)
-                select[0]=1.0
-                det=np.sqrt(np.square(vertices[0,0]-vertices[1,0]) +np.square(vertices[0,1]-vertices[1,1]))
-                points_edge1=(B@points_edge1_ref.T +c).T
+                    select=np.zeros((self.b.n,1),dtype=np_type)
+                    select[0]=1.0
+                    det=np.sqrt(np.square(vertices[0,0]-vertices[1,0]) +np.square(vertices[0,1]-vertices[1,1]))
+                    points_edge1=(B@points_edge1_ref.T +c).T
 
-                res=self.pb.neumann(points_edge1[:,0],points_edge1[:,1])
-                res=np.reshape(res,(-1,1))
-                test=self.b.interpolate(points_edge1_ref,select)
+                    res=self.pb.neumann(points_edge1[:,0],points_edge1[:,1])
+                    res=np.reshape(res,(-1,1))
+                    test=self.b.interpolate(points_edge1_ref,select)
 
-                F_total_vertices[triangle[0]]+=det*np.sum(neumann_weights*res*test)
+                    F_total_vertices[triangle[0]]+=det*np.sum(neumann_weights*res*test)
+
+                    print('1st edge, vertex 1')
+
+                ###############
+
+                if self.mesh['vertex_markers'][triangle[1]]==2:
+
+                    select=np.zeros((self.b.n,1),dtype=np_type)
+                    select[1]=1.0
+                    det=np.sqrt(np.square(vertices[0,0]-vertices[1,0]) +np.square(vertices[0,1]-vertices[1,1]))
+                    points_edge1=(B@points_edge1_ref.T +c).T
+
+                    res=self.pb.neumann(points_edge1[:,0],points_edge1[:,1])
+                    res=np.reshape(res,(-1,1))
+                    test=self.b.interpolate(points_edge1_ref,select)
+
+                    F_total_vertices[triangle[1]]+=det*np.sum(neumann_weights*res*test)
+
+                    print('1st edge, vertex 2')
+
+                #################
+                    
+                # will eval to zero for r=1
+                # if self.mesh['vertex_markers'][triangle[2]]==2:
+
+                #     select=np.zeros((self.b.n,1),dtype=np_type)
+                #     select[2]=1.0
+                #     test=self.b.interpolate(points_edge1_ref,select)
+
+                #     F_total_vertices[triangle[2]]+=det*np.sum(neumann_weights*res*test)
+
+                # print('a')
+
+            if (self.mesh['edge_markers'][self.mesh['edges_index_inside_triangle'][index][1]]==2):
+                if (self.mesh['vertex_markers'][triangle[1]]==2):
+                    select=np.zeros((self.b.n,1),dtype=np_type)
+                    select[1]=1.0
+                    det= np.sqrt(np.square(vertices[1,0]-vertices[2,0]) +np.square(vertices[1,1]-vertices[2,1]))
+                    points_edge2=(B@points_edge2_ref.T +c).T#
+
+                    res=self.pb.neumann(points_edge2[:,0],points_edge2[:,1])
+                    res=np.reshape(res,(-1,1))
+                    test=self.b.interpolate(points_edge2_ref,select)
+                    
+
+                    F_total_vertices[triangle[1]]+=det*np.sum(neumann_weights*res*test)
+
+                    print('2nd edge, vertex 2')
+
+                if (self.mesh['vertex_markers'][triangle[2]]==2):
+                    select=np.zeros((self.b.n,1),dtype=np_type)
+                    select[2]=1.0
+                    det= np.sqrt(np.square(vertices[1,0]-vertices[2,0]) +np.square(vertices[1,1]-vertices[2,1]))
+                    points_edge2=(B@points_edge2_ref.T +c).T#
+
+                    res=self.pb.neumann(points_edge2[:,0],points_edge2[:,1])
+                    res=np.reshape(res,(-1,1))
+                    test=self.b.interpolate(points_edge2_ref,select)
+                    
+
+                    F_total_vertices[triangle[2]]+=det*np.sum(neumann_weights*res*test)
+
+                    print('2nd edge, vertex 3')
     
+            if (self.mesh['edge_markers'][self.mesh['edges_index_inside_triangle'][index][2]]==2):
+                if (self.mesh['vertex_markers'][triangle[2]]==2):
+                    select=np.zeros((self.b.n,1),dtype=np_type)
+                    select[2]=1.0
+                    det= np.sqrt(np.square(vertices[0,0]-vertices[2,0]) +np.square(vertices[0,1]-vertices[2,1]))
+                    points_edge3=(B@points_edge3_ref.T +c).T#
 
-            if (self.mesh['vertex_markers'][triangle[1]]==2 and self.mesh['edge_markers'][self.mesh['edges_index_inside_triangle'][index][1]]==2):
+                    res=self.pb.neumann(points_edge3[:,0],points_edge3[:,1])
+                    res=np.reshape(res,(-1,1))
+                    test=self.b.interpolate(points_edge3_ref,select)
+                    
 
-                select=np.zeros((self.b.n,1),dtype=np_type)
-                select[1]=1.0
-                det= np.sqrt(np.square(vertices[1,0]-vertices[2,0]) +np.square(vertices[1,1]-vertices[2,1]))
-                points_edge2=(B@points_edge2_ref.T +c).T#
+                    F_total_vertices[triangle[2]]+=det*np.sum(neumann_weights*res*test)
 
-                res=self.pb.neumann(points_edge2[:,0],points_edge2[:,1])
-                res=np.reshape(res,(-1,1))
-                test=self.b.interpolate(points_edge2_ref,select)
+                    print('3rd edge, vertex 3')
+
+                if (self.mesh['vertex_markers'][triangle[0]]==2):
+                    select=np.zeros((self.b.n,1),dtype=np_type)
+                    select[0]=1.0
+                    det= np.sqrt(np.square(vertices[0,0]-vertices[2,0]) +np.square(vertices[0,1]-vertices[2,1]))
+                    points_edge3=(B@points_edge3_ref.T +c).T#
+
+                    res=self.pb.neumann(points_edge3[:,0],points_edge3[:,1])
+                    res=np.reshape(res,(-1,1))
+                    test=self.b.interpolate(points_edge3_ref,select)
+                    
+
+                    F_total_vertices[triangle[0]]+=det*np.sum(neumann_weights*res*test)
+
+                    print('3rd edge, vertex 1')
+            # if (self.mesh['vertex_markers'][triangle[1]]==2) and (self.mesh['edge_markers'][self.mesh['edges_index_inside_triangle'][index][1]]==2):
+
+            #     select=np.zeros((self.b.n,1),dtype=np_type)
+            #     select[1]=1.0
+            #     det= np.sqrt(np.square(vertices[1,0]-vertices[2,0]) +np.square(vertices[1,1]-vertices[2,1]))
+            #     points_edge2=(B@points_edge2_ref.T +c).T#
+
+            #     res=self.pb.neumann(points_edge2[:,0],points_edge2[:,1])
+            #     res=np.reshape(res,(-1,1))
+            #     test=self.b.interpolate(points_edge2_ref,select)
                 
 
-                F_total_vertices[triangle[1]]+=det*np.sum(neumann_weights*res*test)
+            #     F_total_vertices[triangle[1]]+=det*np.sum(neumann_weights*res*test)
 
-        
+            #     if self.mesh['vertex_markers'][triangle[2]]==2:
 
-            if (self.mesh['vertex_markers'][triangle[2]]==2 and self.mesh['edge_markers'][self.mesh['edges_index_inside_triangle'][index][2]]==2):
+            #         select=np.zeros((self.b.n,1),dtype=np_type)
+            #         select[2]=1.0
+            #         test=self.b.interpolate(points_edge2_ref,select)
+
+            #         F_total_vertices[triangle[2]]+=det*np.sum(neumann_weights*res*test)
+
+            #     print('b')
+
+            # if (self.mesh['vertex_markers'][triangle[2]]==2) and (self.mesh['edge_markers'][self.mesh['edges_index_inside_triangle'][index][2]]==2):
                 
 
-                select=np.zeros((self.b.n,1),dtype=np_type)
-                select[2]=1.0
-                det= np.sqrt(np.square(vertices[0,0]-vertices[2,0]) +np.square(vertices[0,1]-vertices[2,1]))
-                points_edge3=(B@points_edge3_ref.T +c).T#
+            #     select=np.zeros((self.b.n,1),dtype=np_type)
+            #     select[2]=1.0
+            #     det= np.sqrt(np.square(vertices[0,0]-vertices[2,0]) +np.square(vertices[0,1]-vertices[2,1]))
+            #     points_edge3=(B@points_edge3_ref.T +c).T#
 
-                res=self.pb.neumann(points_edge3[:,0],points_edge3[:,1])
-                res=np.reshape(res,(-1,1))
-                test=self.b.interpolate(points_edge3_ref,select)
+            #     res=self.pb.neumann(points_edge3[:,0],points_edge3[:,1])
+            #     res=np.reshape(res,(-1,1))
+            #     test=self.b.interpolate(points_edge3_ref,select)
                 
 
-                F_total_vertices[triangle[2]]+=det*np.sum(neumann_weights*res*test)
-                
+            #     F_total_vertices[triangle[2]]+=det*np.sum(neumann_weights*res*test)
 
+            #     if self.mesh['vertex_markers'][triangle[0]]==2:
+
+            #         select=np.zeros((self.b.n,1),dtype=np_type)
+            #         select[0]=1.0
+            #         test=self.b.interpolate(points_edge3_ref,select)
+
+            #         F_total_vertices[triangle[0]]+=det*np.sum(neumann_weights*res*test)
+                
+            #     print('c')
 
 
             if(r>=2):

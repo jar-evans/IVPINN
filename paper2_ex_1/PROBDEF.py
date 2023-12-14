@@ -116,7 +116,7 @@ class PROBDEF:
         # c_down = np.array(c_down).astype(int)
         f = lambda x: -3.2*x*np.cos(x)*np.cos(3.2*x**2) - 4.3*np.sin(x)*np.sin(3.2*x**2) + 2.6*np.sin(4.6*x)*np.sin(5.2*x) + 9.2*np.cos(4.6*x)*np.cos(5.2*x)
         g = lambda x: -3.2*x*np.cos(3.2*x*(x - 1))*np.cos(x + 4.3) - 4.3*np.sin(3.2*x*(x - 1))*np.sin(x + 4.3) + 2.6*np.sin(4.6*x + 9.2)*np.sin(5.2*x - 2.6) + 9.2*np.cos(4.6*x + 9.2)*np.cos(5.2*x - 2.6)
-        return - f(x)*self.mu(x,0)*(y==0) + (y==1)*self.mu(x,1)*g(x)
+        return - f(x)*self.mu(x,0)*(1-y) + (y)*self.mu(x,1)*g(x)
     
     
     def dirichlet(self, x, y):
