@@ -95,25 +95,25 @@ class IVPINN():
         if boundary_markings[0] == 'D':
             functions.append(self.boundary_function_bottom)
         else:
-            function.append(1)
+            functions.append(lambda x: 1)
 
         if boundary_markings[1] == 'D':
             functions.append(self.boundary_function_right)
         else:
-            function.append(1)
+            functions.append(lambda x: 1)
 
         if boundary_markings[2] == 'D':
             functions.append(self.boundary_function_top)
         else:
-            function.append(1)
+            functions.append(lambda x: 1)
 
         if boundary_markings[3] == 'D':
             functions.append(self.boundary_function_left)
         else:
-            function.append(1)
+            functions.append(lambda x: 1)
 
         def h(*args):
-            return function[0](*args)*function[1](*args)*function[2](*args)*function[3](*args)
+            return functions[0](*args)*functions[1](*args)*functions[2](*args)*functions[3](*args)
         
         return h
 
