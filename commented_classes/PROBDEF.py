@@ -56,7 +56,12 @@ class PROBDEF:
         Dirichlet conditions
         Must be equal to the solution you want to impose on the particular edge
         """   
+        ## For Dirichlet on boundaries 2 and 4
         return (1-x)*(tf.sin(9.2*y)*tf.cos(2.6*y)) + (x)*(-tf.sin(3.2*y - 3.2)*tf.cos(4.3*y + 1) + tf.sin(9.2*y + 4.6)*tf.cos(2.6*y - 5.2))
+    
+        ## For Dirichlet on all boundaries
+        # expre =  tf.sin(3.2*x*(x - y))*tf.cos(x + 4.3*y) + tf.sin(4.6*x + 9.2*y)*tf.cos(5.2*x - 2.6*y)
+        # return expre * (10*tf.sin(x*(x-1)*(y)*(y-1)) + 1)
     
     def f(self, x, y):
         """
