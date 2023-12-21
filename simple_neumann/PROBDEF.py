@@ -12,21 +12,21 @@ class PROBDEF:
         """
         Exact solution with tensorflow
         """
-        utemp = tf.sin(3.2*x*(x - y))*tf.cos(x + 4.3*y) + tf.sin(4.6*x + 9.2*y)*tf.cos(5.2*x - 2.6*y)
+        utemp = tf.exp(-x**2 -y**2)
         return utemp
     
     def u_exact_np(self, x, y):
         """
         Exact solution with numpy
         """
-        utemp = np.sin(3.2*x*(x - y))*np.cos(x + 4.3*y) + np.sin(4.6*x + 9.2*y)*np.cos(5.2*x - 2.6*y)
+        utemp = np.exp(-x**2 -y**2)
         return utemp
     
     def mu(self, x, y):
         """
         Mu function
         """
-        return 2 + np.sin(x + 2*y)
+        return (2 + np.sin(x + 2*y))*0 + 1
     
     def beta(self, x, y):
         """
@@ -34,21 +34,21 @@ class PROBDEF:
         """
         beta1=np.sqrt(x-(y**2) +5) 
         beta2=np.sqrt(y-(x**2) +5)
-        return beta1, beta2
+        return beta1*0, beta2*0
     
     def sigma(self, x, y):
         """
         Sigma function
         """
-        return np.exp((x/2) -(y/3)) +2
+        return (np.exp((x/2) -(y/3)) +2)*0
         
     def neumann(self, x, y): 
         """
         Neumann conditions
         Must be equal to the solution you want to impose on the particular edge
         """   
-        f = lambda x: (np.sin(x) + 2)*(-3.2*x*np.cos(x)*np.cos(3.2*x**2) - 4.3*np.sin(x)*np.sin(3.2*x**2) + 2.6*np.sin(4.6*x)*np.sin(5.2*x) + 9.2*np.cos(4.6*x)*np.cos(5.2*x))
-        g = lambda x: (np.sin(x + 2) + 2)*(-3.2*x*np.cos(3.2*x*(x - 1))*np.cos(x + 4.3) - 4.3*np.sin(3.2*x*(x - 1))*np.sin(x + 4.3) + 2.6*np.sin(4.6*x + 9.2)*np.sin(5.2*x - 2.6) + 9.2*np.cos(4.6*x + 9.2)*np.cos(5.2*x - 2.6))
+        f = lambda x: 0*x
+        g = lambda x: -2*np.exp(-x*x - 1)
         return - f(x)*(1-y) + (y)*g(x)
     
     def dirichlet(self, x, y):
@@ -57,23 +57,23 @@ class PROBDEF:
         Must be equal to the solution you want to impose on the particular edge
         """   
         ## For Dirichlet on boundaries 2 and 4
-        # return (1-x)*(tf.sin(9.2*y)*tf.cos(2.6*y)) + (x)*(-tf.sin(3.2*y - 3.2)*tf.cos(4.3*y + 1) + tf.sin(9.2*y + 4.6)*tf.cos(2.6*y - 5.2))
+        return (1-x)*(tf.exp(-y**2)) + (x)*(tf.exp(-y**2 - 1))
     
         ## For Dirichlet on all boundaries
-        expre =  tf.sin(3.2*x*(x - y))*tf.cos(x + 4.3*y) + tf.sin(4.6*x + 9.2*y)*tf.cos(5.2*x - 2.6*y)
-        return expre * (10*tf.sin(x*(x-1)*(y)*(y-1)) + 1)
+        # expre =  tf.sin(3.2*x*(x - y))*tf.cos(x + 4.3*y) + tf.sin(4.6*x + 9.2*y)*tf.cos(5.2*x - 2.6*y)
+        # return expre * (10*tf.sin(x*(x-1)*(y)*(y-1)) + 1)
     
     def f(self, x, y):
         """
         Forcing term of the problem
         """
-        expression = (np.sin(3.2*x*(x - y))*np.cos(x + 4.3*y) + np.sin(4.6*x + 9.2*y)*np.cos(5.2*x - 2.6*y))*(np.exp(x/2 - y/3) + 2) - (np.sin(x + 2*y) + 2)*(-10.24*(x**2)*np.sin(3.2*x*(x - y))*np.cos(x + 4.3*y) + 27.52*x*np.sin(x + 4.3*y)*np.cos(3.2*x*(x - y)) - 18.49*np.sin(3.2*x*(x - y))*np.cos(x + 4.3*y) - 91.4*np.sin(4.6*x + 9.2*y)*np.cos(5.2*x - 2.6*y) + 47.84*np.sin(5.2*x - 2.6*y)*np.cos(4.6*x + 9.2*y)) - (np.sin(x + 2*y) + 2)*(-40.96*((x - 0.5*y)**2)*np.sin(3.2*x*(x - y))*np.cos(x + 4.3*y) - 2*(6.4*x - 3.2*y)*np.sin(x + 4.3*y)*np.cos(3.2*x*(x - y)) - np.sin(3.2*x*(x - y))*np.cos(x + 4.3*y) - 48.2*np.sin(4.6*x + 9.2*y)*np.cos(5.2*x - 2.6*y) - 47.84*np.sin(5.2*x - 2.6*y)*np.cos(4.6*x + 9.2*y) + 6.4*np.cos(3.2*x*(x - y))*np.cos(x + 4.3*y)) + np.sqrt(x - (y**2) + 5)*((6.4*x - 3.2*y)*np.cos(3.2*x*(x - y))*np.cos(x + 4.3*y) - np.sin(3.2*x*(x - y))*np.sin(x + 4.3*y) - 5.2*np.sin(4.6*x + 9.2*y)*np.sin(5.2*x - 2.6*y) + 4.6*np.cos(4.6*x + 9.2*y)*np.cos(5.2*x - 2.6*y)) + np.sqrt((-x**2) + y + 5)*(-3.2*x*np.cos(3.2*x*(x - y))*np.cos(x + 4.3*y) - 4.3*np.sin(3.2*x*(x - y))*np.sin(x + 4.3*y) + 2.6*np.sin(4.6*x + 9.2*y)*np.sin(5.2*x - 2.6*y) + 9.2*np.cos(4.6*x + 9.2*y)*np.cos(5.2*x - 2.6*y)) - 2*(-3.2*x*np.cos(3.2*x*(x - y))*np.cos(x + 4.3*y) - 4.3*np.sin(3.2*x*(x - y))*np.sin(x + 4.3*y) + 2.6*np.sin(4.6*x + 9.2*y)*np.sin(5.2*x - 2.6*y) + 9.2*np.cos(4.6*x + 9.2*y)*np.cos(5.2*x - 2.6*y))*np.cos(x + 2*y) - ((6.4*x - 3.2*y)*np.cos(3.2*x*(x - y))*np.cos(x + 4.3*y) - np.sin(3.2*x*(x - y))*np.sin(x + 4.3*y) - 5.2*np.sin(4.6*x + 9.2*y)*np.sin(5.2*x - 2.6*y) + 4.6*np.cos(4.6*x + 9.2*y)*np.cos(5.2*x - 2.6*y))*np.cos(x + 2*y)
+        expression = 4*(1-x*x-y*y)*tf.exp(-x*x -y*y)
         return expression
     
     def dudx(self, x, y):
-        return (6.4*x - 3.2*y)*np.cos(3.2*x*(x - y))*np.cos(x + 4.3*y) - np.sin(3.2*x*(x - y))*np.sin(x + 4.3*y) - 5.2*np.sin(4.6*x + 9.2*y)*np.sin(5.2*x - 2.6*y) + 4.6*np.cos(4.6*x + 9.2*y)*np.cos(5.2*x - 2.6*y)
+        return -2*x*np.exp(-x*x -y*y)
     def dudy(self, x, y):
-        return -3.2*x*np.cos(3.2*x*(x - y))*np.cos(x + 4.3*y) - 4.3*np.sin(3.2*x*(x - y))*np.sin(x + 4.3*y) + 2.6*np.sin(4.6*x + 9.2*y)*np.sin(5.2*x - 2.6*y) + 9.2*np.cos(4.6*x + 9.2*y)*np.cos(5.2*x - 2.6*y)
+        return -2*y*np.exp(-x*x -y*y)
 
     # def generate_points_on_edge(self,point1, point2, num_points):
     #     x_vals = np.linspace(point1[0], point2[0], num_points,endpoint=False)
