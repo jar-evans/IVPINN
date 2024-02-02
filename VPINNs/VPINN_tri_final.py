@@ -326,8 +326,8 @@ class VPINN():
 
     def train(self, iter,LR ,bc_model=None):
 
-        self.optimizer = tf.keras.optimizers.Adam(learning_rate=LR)
-
+        self.optimizer = tf.keras.optimizers.Adam(learning_rate=LR, epsilon=1e-10)
+        # self.optimizer = tf.keras.optimizers.AdamW(learning_rate=LR)
 
 
         if bc_model==None:

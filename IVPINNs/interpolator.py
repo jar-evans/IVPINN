@@ -135,12 +135,21 @@ class interpolator:
 
         xs = self.nodes[:, 0]
         ys = self.nodes[:, 1]
-        pl.scatter(xs, ys)
+        pl.scatter(xs, ys, marker='o', color='blue', edgecolors='black', s=25, label='Nodes')
+        pl.xlabel('X-axis', fontweight='bold')
+        pl.ylabel('Y-axis', fontweight='bold')
+
+        plt.plot([xs[0], xs[1], xs[2], xs[0]], [ys[0], ys[1], ys[2], ys[0]], color='blue', linestyle='--', linewidth=1.5)
+
+
+        # Add a title to the plot
         c = 1
         for x, y in zip(xs, ys):
-            pl.text(x, y, str(c), color="red", fontsize=12)
+            plt.text(x, y, str(c), color="red", fontsize=10, ha='left', va='bottom')  # Adjust ha and va
             c += 1
         pl.margins(0.1)
+        pl.legend()
+
         pl.show()
 
     def generate_powers(self, r: int) -> list:
